@@ -956,6 +956,7 @@ int __btrfs_map_block(struct btrfs_fs_info *fs_info, int rw,
 	struct btrfs_mapping_tree *map_tree = &fs_info->mapping_tree;
 	struct cache_extent *ce;
 	struct map_lookup *map;
+	u64 orig_len = *length;
 	u64 offset;
 	u64 stripe_offset;
 	u64 *raid_map = NULL;
@@ -972,12 +973,10 @@ int __btrfs_map_block(struct btrfs_fs_info *fs_info, int rw,
 again:
 	ce = search_cache_extent(&map_tree->cache_tree, logical);
 	if (!ce) {
-		kfree(multi);
 		*length = (u64)-1;
 		return -ENOENT;
 	}
 	if (ce->start > logical) {
-		kfree(multi);
 		*length = ce->start - logical;
 		return -ENOENT;
 	}
@@ -1047,6 +1046,7 @@ again:
 	} else {
 		*length = ce->size - offset;
 	}
+	*length = min_t(u64, *length, orig_len);
 
 	if (!multi_ret)
 		goto out;
