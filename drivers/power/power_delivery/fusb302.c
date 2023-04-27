@@ -11,7 +11,7 @@
 #include <power/power_delivery/tcpm.h>
 #include <power/power_delivery/power_delivery.h>
 #include "fusb302_reg.h"
-
+#include <irq-generic.h>
 /*
  * When the device is SNK, BC_LVL interrupt is used to monitor cc pins
  * for the current capability offered by the SRC. As FUSB302 chip fires
@@ -192,6 +192,7 @@ static int fusb302_enable_tx_auto_retries(struct fusb302_chip *chip, u8 retry_co
 /*
  * mask all interrupt on the chip
  */
+#if 0
 static int fusb302_mask_interrupt(struct fusb302_chip *chip)
 {
 	int ret = 0;
@@ -209,6 +210,7 @@ static int fusb302_mask_interrupt(struct fusb302_chip *chip)
 				   FUSB_REG_CONTROL0_INT_MASK);
 		return ret;
 }
+#endif
 
 /*
  * initialize interrupt on the chip
@@ -268,7 +270,7 @@ static int tcpm_init(struct tcpc_dev *dev)
 	ret = fusb302_i2c_read(chip, FUSB_REG_DEVICE_ID, &data);
 	if (ret)
 		return ret;
-	printf("fusb302 device ID: 0x%02x\n", data);
+	debug("fusb302 device ID: 0x%02x\n", data);
 
 	return ret;
 }
@@ -401,7 +403,7 @@ static int fusb302_set_toggling(struct fusb302_chip *chip,
 	} else {
 		/* Datasheet says vconn MUST be off when toggling */
 		if (chip->vconn_on)
-			printf("%s: Vconn is on during toggle start\n", __func__);
+			debug("%s: Vconn is on during toggle start\n", __func__);
 		/* unmask TOGDONE interrupt */
 		ret = fusb302_i2c_clear_bits(chip, FUSB_REG_MASKA,
 					     FUSB_REG_MASKA_TOGDONE);
@@ -568,7 +570,7 @@ static int tcpm_set_vconn(struct tcpc_dev *dev, bool on)
 			    FUSB_REG_SWITCHES0_VCONN_CC2;
 
 	if (chip->vconn_on == on) {
-		printf("vconn is already %s\n", on ? "On" : "Off");
+		debug("vconn is already %s\n", on ? "On" : "Off");
 		goto done;
 	}
 	if (on) {
@@ -771,7 +773,7 @@ static int tcpm_start_toggling(struct tcpc_dev *dev,
 		printf("%s: unable to start drp toggling(%d)\n", __func__, ret);
 		goto done;
 	}
-	printf("fusb302 start drp toggling\n");
+	debug("fusb302 start drp toggling\n");
 done:
 
 	return ret;
@@ -896,9 +898,8 @@ static void fusb302_bc_lvl_handler(struct fusb302_chip *chip)
 	u8 status0;
 	u8 bc_lvl;
 	enum typec_cc_status cc_status;
-
 	if (!chip->intr_bc_lvl) {
-		printf("BC_LVL interrupt is turned off, abort\n");
+		debug("BC_LVL interrupt is turned off, abort\n");
 		goto done;
 	}
 	ret = fusb302_i2c_read(chip, FUSB_REG_STATUS0, &status0);
@@ -907,7 +908,7 @@ static void fusb302_bc_lvl_handler(struct fusb302_chip *chip)
 
 	debug("BC_LVL handler, status0 = 0x%02x\n", status0);
 	if (status0 & FUSB_REG_STATUS0_ACTIVITY)
-		printf("CC activities detected, delay handling\n");
+		debug("CC activities detected, delay handling\n");
 	bc_lvl = status0 & FUSB_REG_STATUS0_BC_LVL_MASK;
 	cc_status = fusb302_bc_lvl_to_cc(bc_lvl);
 	if (chip->cc_polarity == TYPEC_POLARITY_CC1) {
@@ -933,14 +934,14 @@ done:
 }
 
 static void fusb302_interrupt_handle(struct fusb302_chip *chip);
+
+
 static void fusb302_poll_event(struct tcpc_dev *dev)
 {
-	struct fusb302_chip *chip = container_of(dev, struct fusb302_chip,
-						 tcpc_dev);
-
-	fusb302_interrupt_handle(chip);
 }
 
+
+#if 0
 static int fusb302_enter_low_power_mode(struct tcpc_dev *dev,
 					bool attached, bool pd_capable)
 {
@@ -961,6 +962,7 @@ static int fusb302_enter_low_power_mode(struct tcpc_dev *dev,
 
 	return fusb302_set_power_mode(chip, reg);
 }
+#endif
 
 static void init_tcpc_dev(struct tcpc_dev *fusb302_tcpc_dev)
 {
@@ -977,7 +979,8 @@ static void init_tcpc_dev(struct tcpc_dev *fusb302_tcpc_dev)
 	fusb302_tcpc_dev->start_toggling = tcpm_start_toggling;
 	fusb302_tcpc_dev->pd_transmit = tcpm_pd_transmit;
 	fusb302_tcpc_dev->poll_event = fusb302_poll_event;
-	fusb302_tcpc_dev->enter_low_power_mode = fusb302_enter_low_power_mode;
+	// fusb302_tcpc_dev->enter_low_power_mode = fusb302_enter_low_power_mode;
+	fusb302_tcpc_dev->enter_low_power_mode = NULL;
 }
 
 static const char * const cc_polarity_name[] = {
@@ -1052,7 +1055,7 @@ static int fusb302_handle_togdone_snk(struct fusb302_chip *chip,
 	cc_status_active = fusb302_bc_lvl_to_cc(bc_lvl);
 	/* restart toggling if the cc status on the active line is OPEN */
 	if (cc_status_active == TYPEC_CC_OPEN) {
-		printf("restart toggling as CC_OPEN detected\n");
+		debug("restart toggling as CC_OPEN detected\n");
 		ret = fusb302_set_toggling(chip, chip->toggling_mode);
 		return ret;
 	}
@@ -1190,7 +1193,7 @@ static int fusb302_handle_togdone_src(struct fusb302_chip *chip,
 		    (cc1 == TYPEC_CC_OPEN || cc1 == TYPEC_CC_RA)) {
 		cc_polarity = TYPEC_POLARITY_CC2;
 	} else {
-		printf("unexpected CC status cc1=%s, cc2=%s, restarting toggling\n",
+		debug("unexpected CC status cc1=%s, cc2=%s, restarting toggling\n",
 			typec_cc_status_name[cc1],
 			typec_cc_status_name[cc2]);
 		return fusb302_set_toggling(chip, toggling_mode);
@@ -1271,7 +1274,6 @@ static int fusb302_pd_read_message(struct fusb302_chip *chip,
 	u8 token;
 	u8 crc[4];
 	int len;
-
 	/* first SOP token */
 	ret = fusb302_i2c_read(chip, FUSB_REG_FIFOS, &token);
 	if (ret)
@@ -1336,22 +1338,27 @@ static void fusb302_interrupt_handle(struct fusb302_chip *chip)
 	intr_bc_lvl = chip->intr_bc_lvl;
 	intr_comp_chng = chip->intr_comp_chng;
 
-	if (chip->gpio_cc_int_present)
-		if (!dm_gpio_get_value(&chip->gpio_cc_int))
-			return;
-
 	ret = fusb302_i2c_read(chip, FUSB_REG_INTERRUPT, &interrupt);
-	if (ret)
+	if (ret) {
+		printf("read interrupt fail\n");
 		return;
+	}
 	ret = fusb302_i2c_read(chip, FUSB_REG_INTERRUPTA, &interrupta);
-	if (ret)
+	if (ret) {
+		printf("read interrupta fail\n");
 		return;
+	}
 	ret = fusb302_i2c_read(chip, FUSB_REG_INTERRUPTB, &interruptb);
-	if (ret)
+	if (ret) {
+		printf("read interruptb fail\n");
 		return;
+	}
 	ret = fusb302_i2c_read(chip, FUSB_REG_STATUS0, &status0);
-	if (ret)
+	if (ret) {
+		printf("read status0 fail\n");
 		return;
+	}
+
 	debug("IRQ: 0x%02x, a: 0x%02x, b: 0x%02x, status0: 0x%02x\n",
 		interrupt, interrupta, interruptb, status0);
 
@@ -1444,13 +1451,17 @@ static void fusb302_interrupt_handle(struct fusb302_chip *chip)
 	}
 }
 
+void fusb302_irq_intn(int irq, void *dev_id)
+{
+	struct fusb302_chip *chip = dev_id;
+	fusb302_interrupt_handle(chip);
+}
+
 static int fusb302_probe(struct udevice *dev)
 {
 	struct fusb302_chip *chip = dev_get_priv(dev);
-	int ret = 0;
 
 	chip->udev = dev;
-
 #if 0
 	/* get vbus regulator */
 	ret = regulator_get_by_platname("vbus5v0_typec", chip->vbus_regulator);
@@ -1459,7 +1470,6 @@ static int fusb302_probe(struct udevice *dev)
 		chip->vbus_regulator = NULL;
 	}
 #endif
-
 	chip->tcpc_dev.connector_node = dev_read_subnode(dev, "connector");
 	if (!ofnode_valid(chip->tcpc_dev.connector_node)) {
 		printf("%s: 'connector' node is not found\n", __func__);
@@ -1467,27 +1477,23 @@ static int fusb302_probe(struct udevice *dev)
 	}
 
 	init_tcpc_dev(&chip->tcpc_dev);
-
-	ret = gpio_request_by_name(dev, "int-n-gpios", 0,
-				   &chip->gpio_cc_int, GPIOD_IS_IN);
-	if (ret) {
-		printf("%s: fail to get int GPIO: ret=%d\n", __func__, ret);
-		chip->gpio_cc_int_present = false;
-	} else {
-		chip->gpio_cc_int_present = true;
-	}
-
 	chip->tcpm_port = tcpm_port_init(dev, &chip->tcpc_dev);
 	if (IS_ERR(chip->tcpm_port)) {
 		printf("%s: failed to tcpm port init\n", __func__);
 		return PTR_ERR(chip->tcpm_port);
 	}
 
+	chip->irq = hard_gpio_to_irq(RK_IRQ_GPIO(RK_GPIO0, RK_PC6));
+	if (chip->irq < 0) {
+		printf("%s request irq fail!\n", __func__);
+		return EINTR;
+	}
+	irq_install_handler(chip->irq, fusb302_irq_intn, chip);
+	irq_set_irq_type(chip->irq, IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_LEVEL_LOW);
+	irq_handler_enable(chip->irq);
 	tcpm_poll_event(chip->tcpm_port);
-
 	return 0;
 }
-
 
 static int fusb302_get_voltage(struct udevice *dev)
 {

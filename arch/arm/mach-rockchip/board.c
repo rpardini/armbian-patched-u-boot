@@ -414,8 +414,17 @@ static void cmdline_handle(void)
 	}
 }
 
+
+static void power_delivery_func(void)
+{
+	struct udevice *dev;
+	uclass_get_device_by_driver(UCLASS_PD,
+			DM_GET_DRIVER(fusb302), &dev);
+}
+
 int board_late_init(void)
 {
+	power_delivery_func();
 #ifdef CONFIG_ROCKCHIP_SET_ETHADDR
 	rockchip_set_ethaddr();
 #endif
