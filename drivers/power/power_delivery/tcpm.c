@@ -165,7 +165,7 @@
 
 #define GENERATE_ENUM(e)	e
 #define GENERATE_STRING(s)	#s
-#define TCPM_POLL_EVENT_TIME_OUT 2000
+#define TCPM_POLL_EVENT_TIME_OUT 1000
 
 enum tcpm_state {
 	FOREACH_STATE(GENERATE_ENUM)
@@ -282,6 +282,7 @@ enum power_supply_usb_type {
 };
 
 struct tcpm_port {
+	int time_count;
 	struct udevice *dev;
 	struct typec_capability typec_caps;
 	struct tcpc_dev	*tcpc;
@@ -577,7 +578,7 @@ static int tcpm_pd_transmit(struct tcpm_port *port,
 			    const struct pd_message *msg)
 {
 	int ret;
-	int timeout = PD_T_TCPC_TX_TIMEOUT;
+	// int timeout = PD_T_TCPC_TX_TIMEOUT;
 
 	if (msg)
 		debug("PD TX, header: %#x\n", le16_to_cpu(msg->header));
@@ -589,17 +590,18 @@ static int tcpm_pd_transmit(struct tcpm_port *port,
 	if (ret < 0)
 		return ret;
 
-	while ((timeout > 0) && (!port->tx_complete)) {
-		port->tcpc->poll_event(port->tcpc);
-		udelay(1000);
-		timeout--;
-	}
+	/* Using the delay function at this point will affect the gpio interrupt response */
+	// while ((timeout > 0) && (!port->tx_complete)) {
+	// 	// port->tcpc->poll_event(port->tcpc);
+	// 	udelay(1000);
+	// 	timeout--;
+	// }
 
-	if (!timeout) {
-		printf("%s: pd transmit data timeout\n", __func__);
-		return -ETIMEDOUT;
-	}
-
+	// if (!timeout) {
+	// 	printf("%s: pd transmit data timeout\n", __func__);
+	// 	return -ETIMEDOUT;
+	// }
+	debug("%s status %u\n", __func__, port->tx_status);
 	switch (port->tx_status) {
 	case TCPC_TX_SUCCESS:
 		port->message_id = (port->message_id + 1) & PD_HEADER_ID_MASK;
@@ -685,7 +687,6 @@ static int tcpm_set_current_limit(struct tcpm_port *port, u32 max_ma, u32 mv)
 	int ret = -EOPNOTSUPP;
 
 	debug("Setting voltage/current limit %u mV %u mA\n", mv, max_ma);
-
 	port->supply_voltage = mv;
 	port->current_limit = max_ma;
 
@@ -851,7 +852,6 @@ static void tcpm_set_state(struct tcpm_port *port, enum tcpm_state state,
 {
 	debug("%s: line = %d, delay_ms = %d, set state = %s\n",
 		 __func__, __LINE__, delay_ms, tcpm_states[state]);
-
 	if (delay_ms) {
 		debug("pending state change %s -> %s @ %u ms [%s]\n",
 			 tcpm_states[port->state], tcpm_states[state], delay_ms,
@@ -1181,6 +1181,8 @@ static void tcpm_pd_ctrl_request(struct tcpm_port *port,
 		case SRC_READY:
 		case SNK_READY:
 			tcpm_queue_message(port, PD_MSG_DATA_SINK_CAP);
+			// tcpm_timer_uninit(port);
+			// port->tcpc->mask_interrupt(port->tcpc);
 			break;
 		default:
 			tcpm_queue_message(port, PD_MSG_CTRL_REJECT);
@@ -1390,7 +1392,7 @@ static void tcpm_pd_rx_handler(struct tcpm_port *port,
 		 */
 		if (!!(le16_to_cpu(msg->header) & PD_HEADER_DATA_ROLE) ==
 		    (port->data_role == TYPEC_HOST)) {
-			printf("Data role mismatch, initiating error recovery\n");
+			debug("Data role mismatch, initiating error recovery\n");
 			tcpm_set_state(port, ERROR_RECOVERY, 0);
 		} else {
 			if (cnt)
@@ -1407,7 +1409,7 @@ done:
 void tcpm_pd_receive(struct tcpm_port *port, const struct pd_message *msg)
 {
 	struct pd_rx_event *event;
-
+	debug("%s\n", __func__);
 	port->poll_event_cnt = 0;
 	event = kzalloc(sizeof(*event), GFP_ATOMIC);
 	if (!event)
@@ -1522,7 +1524,7 @@ static int tcpm_pd_check_request(struct tcpm_port *port)
 			return -EINVAL;
 		if (max > pdo_max && !(rdo & RDO_CAP_MISMATCH))
 			return -EINVAL;
-		printf("Requested %u -> %u mV, %u mW for %u / %u mW\n",
+		debug("Requested %u -> %u mV, %u mW for %u / %u mW\n",
 		       pdo_min_voltage(pdo), pdo_max_voltage(pdo),
 		       pdo_max, op, max);
 		break;
@@ -1795,13 +1797,13 @@ static int tcpm_pd_build_request(struct tcpm_port *port, u32 *rdo)
 	if (type == PDO_TYPE_BATT) {
 		*rdo = RDO_BATT(src_pdo_index + 1, mw, max_mw, flags);
 
-		printf("Requesting PDO %d: %u mV, %u mW%s\n",
+		debug("Requesting PDO %d: %u mV, %u mW%s\n",
 		       src_pdo_index, mv, mw,
 		       flags & RDO_CAP_MISMATCH ? " [mismatch]" : "");
 	} else {
 		*rdo = RDO_FIXED(src_pdo_index + 1, ma, max_ma, flags);
 
-		printf("Requesting PDO %d: %u mV, %u mA%s\n",
+		debug("Requesting PDO %d: %u mV, %u mA%s\n",
 			src_pdo_index, mv, ma,
 			flags & RDO_CAP_MISMATCH ? " [mismatch]" : "");
 	}
@@ -1900,7 +1902,7 @@ static int tcpm_pd_build_pps_request(struct tcpm_port *port, u32 *rdo)
 
 	*rdo = RDO_PROG(src_pdo_index + 1, out_mv, op_ma, flags);
 
-	printf("Requesting APDO %d: %u mV, %u mA\n",
+	debug("Requesting APDO %d: %u mV, %u mA\n",
 	       src_pdo_index, out_mv, op_ma);
 
 	port->pps_data.req_op_curr = op_ma;
@@ -1972,7 +1974,7 @@ static bool tcpm_start_toggling(struct tcpm_port *port, enum typec_cc_status cc)
 	if (!port->tcpc->start_toggling)
 		return false;
 
-	printf("Start toggling\n");
+	debug("Start toggling\n");
 	ret = port->tcpc->start_toggling(port->tcpc, port->port_type, cc);
 	return ret == 0;
 }
@@ -2056,7 +2058,7 @@ out_disable_vconn:
 out_disable_pd:
 	port->tcpc->set_pd_rx(port->tcpc, false);
 out_disable_mux:
-	printf("CC connected in %s as DFP\n",
+	debug("CC connected in %s as DFP\n",
 		polarity ? "CC2" : "CC1");
 	return 0;
 }
@@ -2088,7 +2090,7 @@ static void tcpm_reset_port(struct tcpm_port *port)
 	port->tcpc->set_pd_rx(port->tcpc, false);
 	tcpm_init_vbus(port);	/* also disables charging */
 	tcpm_init_vconn(port);
-	tcpm_set_current_limit(port, 0, 0);
+	tcpm_set_current_limit(port, 3000, 5000);
 	tcpm_set_polarity(port, TYPEC_POLARITY_CC1);
 	tcpm_set_attached_state(port, false);
 	port->usb_type = POWER_SUPPLY_USB_TYPE_C;
@@ -2134,7 +2136,7 @@ static int tcpm_snk_attach(struct tcpm_port *port)
 
 	port->attached = true;
 	port->debouncing = false;
-	printf("CC connected in %s as UFP\n",
+	debug("CC connected in %s as UFP\n",
 		port->cc1 != TYPEC_CC_OPEN ? "CC1" : "CC2");
 
 	return 0;
@@ -2174,14 +2176,18 @@ static void tcpm_acc_detach(struct tcpm_port *port)
 
 static inline enum tcpm_state hard_reset_state(struct tcpm_port *port)
 {
-	if (port->hard_reset_count < PD_N_HARD_RESET_COUNT)
+	if (port->hard_reset_count < PD_N_HARD_RESET_COUNT) {
 		return HARD_RESET_SEND;
-	if (port->pd_capable)
+	}
+	if (port->pd_capable) {
 		return ERROR_RECOVERY;
-	if (port->pwr_role == TYPEC_SOURCE)
+	}
+	if (port->pwr_role == TYPEC_SOURCE) {
 		return SRC_UNATTACHED;
-	if (port->state == SNK_WAIT_CAPABILITIES)
+	}
+	if (port->state == SNK_WAIT_CAPABILITIES) {
 		return SNK_READY;
+	}
 	return SNK_UNATTACHED;
 }
 
@@ -2219,6 +2225,7 @@ static void run_state_machine(struct tcpm_port *port)
 		break;
 	/* SRC states */
 	case SRC_UNATTACHED:
+		debug("%s state SRC_UNATTACHED\n", __func__);
 		tcpm_src_detach(port);
 		if (tcpm_start_toggling(port, tcpm_rp_cc(port))) {
 			tcpm_set_state(port, TOGGLING, 0);
@@ -2342,6 +2349,7 @@ static void run_state_machine(struct tcpm_port *port)
 
 	/* SNK states */
 	case SNK_UNATTACHED:
+		debug("%s state SNK_UNATTACHED\n", __func__);
 		tcpm_snk_detach(port);
 		if (tcpm_start_toggling(port, TYPEC_CC_RD)) {
 			tcpm_set_state(port, TOGGLING, 0);
@@ -2352,6 +2360,7 @@ static void run_state_machine(struct tcpm_port *port)
 			tcpm_set_state(port, SRC_UNATTACHED, PD_T_DRP_SRC);
 		break;
 	case SNK_ATTACH_WAIT:
+		debug("%s state SNK_ATTACH_WAIT\n", __func__);
 		if ((port->cc1 == TYPEC_CC_OPEN &&
 		     port->cc2 != TYPEC_CC_OPEN) ||
 		    (port->cc1 != TYPEC_CC_OPEN &&
@@ -2363,6 +2372,7 @@ static void run_state_machine(struct tcpm_port *port)
 				       PD_T_CC_DEBOUNCE);
 		break;
 	case SNK_DEBOUNCED:
+		debug("%s state SNK_DEBOUNCED\n", __func__);
 		if (tcpm_port_is_disconnected(port)) {
 			tcpm_set_state(port, SNK_UNATTACHED,
 				       PD_T_PD_DEBOUNCE);
@@ -2374,6 +2384,7 @@ static void run_state_machine(struct tcpm_port *port)
 		break;
 
 	case SNK_ATTACHED:
+		debug("%s state SNK_ATTACHED\n", __func__);
 		ret = tcpm_snk_attach(port);
 		if (ret < 0)
 			tcpm_set_state(port, SNK_UNATTACHED, 0);
@@ -2381,6 +2392,7 @@ static void run_state_machine(struct tcpm_port *port)
 			tcpm_set_state(port, SNK_STARTUP, 0);
 		break;
 	case SNK_STARTUP:
+		debug("%s state SNK_STARTUP\n", __func__);
 		port->negotiated_rev = PD_MAX_REV;
 		port->message_id = 0;
 		port->rx_msgid = -1;
@@ -2388,6 +2400,7 @@ static void run_state_machine(struct tcpm_port *port)
 		tcpm_set_state(port, SNK_DISCOVERY, 0);
 		break;
 	case SNK_DISCOVERY:
+		debug("%s state SNK_DISCOVERY\n", __func__);
 		if (port->vbus_present) {
 			tcpm_set_current_limit(port,
 					       tcpm_get_current_limit(port),
@@ -2406,10 +2419,12 @@ static void run_state_machine(struct tcpm_port *port)
 					PD_T_DB_DETECT : PD_T_NO_RESPONSE);
 		break;
 	case SNK_DISCOVERY_DEBOUNCE:
+		debug("%s state SNK_DISCOVERY_DEBOUNCE\n", __func__);
 		tcpm_set_state(port, SNK_DISCOVERY_DEBOUNCE_DONE,
 			       PD_T_CC_DEBOUNCE);
 		break;
 	case SNK_DISCOVERY_DEBOUNCE_DONE:
+		debug("%s state SNK_DISCOVERY_DEBOUNCE_DONE\n", __func__);
 #if 0
 		if (!tcpm_port_is_disconnected(port) &&
 		    tcpm_port_is_sink(port) &&
@@ -2422,6 +2437,7 @@ static void run_state_machine(struct tcpm_port *port)
 		tcpm_set_state(port, unattached_state(port), 0);
 		break;
 	case SNK_WAIT_CAPABILITIES:
+		debug("%s state SNK_WAIT_CAPABILITIES\n", __func__);
 		ret = port->tcpc->set_pd_rx(port->tcpc, true);
 		if (ret < 0) {
 			tcpm_set_state(port, SNK_READY, 0);
@@ -2433,6 +2449,7 @@ static void run_state_machine(struct tcpm_port *port)
 		 * were already in a stable contract before this boot.
 		 * Do this only once.
 		 */
+		debug("## vbus_never_low: %d\n", port->vbus_never_low);
 		if (port->vbus_never_low) {
 			port->vbus_never_low = false;
 			tcpm_set_state(port, SOFT_RESET_SEND,
@@ -2443,6 +2460,7 @@ static void run_state_machine(struct tcpm_port *port)
 		}
 		break;
 	case SNK_NEGOTIATE_CAPABILITIES:
+		debug("%s state SNK_NEGOTIATE_CAPABILITIES\n", __func__);
 		port->pd_capable = true;
 		port->hard_reset_count = 0;
 		ret = tcpm_pd_send_request(port);
@@ -2455,6 +2473,7 @@ static void run_state_machine(struct tcpm_port *port)
 		}
 		break;
 	case SNK_NEGOTIATE_PPS_CAPABILITIES:
+		debug("%s state SNK_NEGOTIATE_PPS_CAPABILITIES\n", __func__);
 		ret = tcpm_pd_send_pps_request(port);
 		if (ret < 0) {
 			port->pps_status = ret;
@@ -2474,10 +2493,12 @@ static void run_state_machine(struct tcpm_port *port)
 		break;
 	case SNK_TRANSITION_SINK:
 	case SNK_TRANSITION_SINK_VBUS:
+		debug("%s state SNK_TRANSITION_SINK\n", __func__);
 		tcpm_set_state(port, hard_reset_state(port),
 			       PD_T_PS_TRANSITION);
 		break;
 	case SNK_READY:
+		debug("%s state SNK_READY\n", __func__);
 		port->try_snk_count = 0;
 		port->update_sink_caps = false;
 		tcpm_typec_connect(port);
@@ -2485,6 +2506,7 @@ static void run_state_machine(struct tcpm_port *port)
 		 * Here poll_event_cnt is cleared, waiting for self-powered Type-C devices
 		 * to send DR_swap Messge until 1s (TCPM_POLL_EVENT_TIME_OUT * 500us)timeout
 		 */
+		debug("SNK_READY  wait_dr_swap_Message: %d\n", port->wait_dr_swap_Message);
 		if (port->wait_dr_swap_Message)
 			port->poll_event_cnt = 0;
 
@@ -2507,11 +2529,14 @@ static void run_state_machine(struct tcpm_port *port)
 
 	/* Hard_Reset states */
 	case HARD_RESET_SEND:
+		debug("%s state HARD_RESET_SEND\n", __func__);
 		tcpm_pd_transmit(port, TCPC_TX_HARD_RESET, NULL);
+		debug("%s transmit TCPC_TX_HARD_RESET\n", __func__);
 		tcpm_set_state(port, HARD_RESET_START, 0);
 		port->wait_dr_swap_Message = false;
 		break;
 	case HARD_RESET_START:
+		debug("%s state HARD_RESET_START\n", __func__);
 		port->hard_reset_count++;
 		port->tcpc->set_pd_rx(port->tcpc, false);
 		port->nr_sink_caps = 0;
@@ -2523,6 +2548,7 @@ static void run_state_machine(struct tcpm_port *port)
 			tcpm_set_state(port, SNK_HARD_RESET_SINK_OFF, 0);
 		break;
 	case SRC_HARD_RESET_VBUS_OFF:
+		debug("%s state SRC_HARD_RESET_VBUS_OFF\n", __func__);
 		tcpm_set_vconn(port, true);
 		tcpm_set_vbus(port, false);
 		tcpm_set_roles(port, port->self_powered, TYPEC_SOURCE,
@@ -2537,6 +2563,7 @@ static void run_state_machine(struct tcpm_port *port)
 		tcpm_set_state(port, SRC_UNATTACHED, PD_T_PS_SOURCE_ON);
 		break;
 	case SNK_HARD_RESET_SINK_OFF:
+		debug("%s state SNK_HARD_RESET_SINK_OFF\n", __func__);
 		memset(&port->pps_data, 0, sizeof(port->pps_data));
 		tcpm_set_vconn(port, false);
 		if (port->pd_capable)
@@ -2551,11 +2578,13 @@ static void run_state_machine(struct tcpm_port *port)
 		tcpm_set_state(port, SNK_HARD_RESET_SINK_ON, PD_T_SAFE_0V);
 		break;
 	case SNK_HARD_RESET_WAIT_VBUS:
+		debug("%s state SNK_HARD_RESET_WAIT_VBUS\n", __func__);
 		/* Assume we're disconnected if VBUS doesn't come back. */
 		tcpm_set_state(port, SNK_UNATTACHED,
 			       PD_T_SRC_RECOVER_MAX + PD_T_SRC_TURN_ON);
 		break;
 	case SNK_HARD_RESET_SINK_ON:
+		debug("%s state SNK_HARD_RESET_SINK_ON\n", __func__);
 		/* Note: There is no guarantee that VBUS is on in this state */
 		/*
 		 * XXX:
@@ -2584,6 +2613,7 @@ static void run_state_machine(struct tcpm_port *port)
 
 	/* Soft_Reset states */
 	case SOFT_RESET:
+		debug("%s state SOFT_RESET\n", __func__);
 		port->message_id = 0;
 		port->rx_msgid = -1;
 		tcpm_pd_send_control(port, PD_CTRL_ACCEPT);
@@ -2594,6 +2624,7 @@ static void run_state_machine(struct tcpm_port *port)
 		}
 		break;
 	case SOFT_RESET_SEND:
+		debug("%s state SOFT_RESET_SEND\n", __func__);
 		port->message_id = 0;
 		port->rx_msgid = -1;
 		if (tcpm_pd_send_control(port, PD_CTRL_SOFT_RESET))
@@ -2797,6 +2828,7 @@ static void tcpm_state_machine(struct tcpm_port *port)
 		debug("state change %s -> %s [delayed %ld ms]\n",
 			 tcpm_states[port->state],
 			 tcpm_states[port->delayed_state], port->delay_ms);
+
 		port->prev_state = port->state;
 		port->state = port->delayed_state;
 		port->delayed_state = INVALID_STATE;
@@ -2836,6 +2868,7 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 
 	switch (port->state) {
 	case TOGGLING:
+		debug("%s state TOGGLING\n", __func__);
 		if (tcpm_port_is_debug(port) || tcpm_port_is_audio(port) ||
 		    tcpm_port_is_source(port))
 			tcpm_set_state(port, SRC_ATTACH_WAIT, 0);
@@ -2863,10 +2896,12 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 			tcpm_set_state(port, SRC_UNATTACHED, 0);
 		break;
 	case SNK_UNATTACHED:
+		debug("%s state SNK_UNATTACHED\n", __func__);
 		if (tcpm_port_is_sink(port))
 			tcpm_set_state(port, SNK_ATTACH_WAIT, 0);
 		break;
 	case SNK_ATTACH_WAIT:
+		debug("%s state SNK_ATTACH_WAIT\n", __func__);
 		if ((port->cc1 == TYPEC_CC_OPEN &&
 		     port->cc2 != TYPEC_CC_OPEN) ||
 		    (port->cc1 != TYPEC_CC_OPEN &&
@@ -2880,6 +2915,7 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 			tcpm_set_state(port, SNK_ATTACH_WAIT, 0);
 		break;
 	case SNK_DEBOUNCED:
+		debug("%s state SNK_DEBOUNCED\n", __func__);
 		if (tcpm_port_is_disconnected(port))
 			new_state = SNK_UNATTACHED;
 		else if (port->vbus_present)
@@ -2890,6 +2926,7 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 			tcpm_set_state(port, SNK_DEBOUNCED, 0);
 		break;
 	case SNK_READY:
+		debug("%s state SNK_READY\n", __func__);
 		if (tcpm_port_is_disconnected(port))
 			tcpm_set_state(port, unattached_state(port), 0);
 		else if (!port->pd_capable &&
@@ -2900,29 +2937,35 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 		break;
 
 	case AUDIO_ACC_ATTACHED:
+		debug("%s state AUDIO_ACC_ATTACHED\n", __func__);
 		if (cc1 == TYPEC_CC_OPEN || cc2 == TYPEC_CC_OPEN)
 			tcpm_set_state(port, AUDIO_ACC_DEBOUNCE, 0);
 		break;
 	case AUDIO_ACC_DEBOUNCE:
+		debug("%s state AUDIO_ACC_DEBOUNCE\n", __func__);
 		if (tcpm_port_is_audio(port))
 			tcpm_set_state(port, AUDIO_ACC_ATTACHED, 0);
 		break;
 
 	case DEBUG_ACC_ATTACHED:
+		debug("%s state DEBUG_ACC_ATTACHED\n", __func__);
 		if (cc1 == TYPEC_CC_OPEN || cc2 == TYPEC_CC_OPEN)
 			tcpm_set_state(port, ACC_UNATTACHED, 0);
 		break;
 
 	case SNK_TRY:
+		debug("%s state SNK_TRY\n", __func__);
 		/* Do nothing, waiting for timeout */
 		break;
 
 	case SNK_DISCOVERY:
+		debug("%s state SNK_DISCOVERY\n", __func__);
 		/* CC line is unstable, wait for debounce */
 		if (tcpm_port_is_disconnected(port))
 			tcpm_set_state(port, SNK_DISCOVERY_DEBOUNCE, 0);
 		break;
 	case SNK_DISCOVERY_DEBOUNCE:
+		debug("%s state SNK_DISCOVERY_DEBOUNCE\n", __func__);
 		break;
 
 	case SRC_TRYWAIT:
@@ -2935,6 +2978,7 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 			tcpm_set_state(port, SRC_TRYWAIT, 0);
 		break;
 	case SNK_TRY_WAIT_DEBOUNCE:
+		debug("%s state SNK_TRY_WAIT_DEBOUNCE\n", __func__);
 		if (!tcpm_port_is_sink(port)) {
 			port->max_wait = 0;
 			tcpm_set_state(port, SRC_TRYWAIT, 0);
@@ -2948,14 +2992,17 @@ static void _tcpm_cc_change(struct tcpm_port *port, enum typec_cc_status cc1,
 		tcpm_set_state(port, SRC_TRY_WAIT, 0);
 		break;
 	case SNK_TRYWAIT_DEBOUNCE:
+		debug("%s state SNK_TRYWAIT_DEBOUNCE\n", __func__);
 		if (tcpm_port_is_sink(port))
 			tcpm_set_state(port, SNK_TRYWAIT_VBUS, 0);
 		break;
 	case SNK_TRYWAIT_VBUS:
+		debug("%s state SNK_TRYWAIT_VBUS\n", __func__);
 		if (!tcpm_port_is_sink(port))
 			tcpm_set_state(port, SNK_TRYWAIT_DEBOUNCE, 0);
 		break;
 	case SNK_TRYWAIT:
+		debug("%s state SNK_TRYWAIT\n", __func__);
 		/* Do nothing, waiting for tCCDebounce */
 		break;
 	case PR_SWAP_SNK_SRC_SINK_OFF:
@@ -3457,7 +3504,7 @@ struct tcpm_port *tcpm_port_init(struct udevice *dev, struct tcpc_dev *tcpc)
 
 	tcpm_init(port);
 
-	printf("%s: init finished\n", dev_read_name(dev));
+	debug("%s: init finished\n", dev_read_name(dev));
 
 	return port;
 }
@@ -3465,8 +3512,10 @@ EXPORT_SYMBOL_GPL(tcpm_port_init);
 
 void tcpm_poll_event(struct tcpm_port *port)
 {
-	if (!port->tcpc->get_vbus(port->tcpc))
+	port->time_count = 3000;
+	if (!port->tcpc->get_vbus(port->tcpc)) {
 		return ;
+	}
 
 	while (port->poll_event_cnt < TCPM_POLL_EVENT_TIME_OUT) {
 		if (!port->wait_dr_swap_Message &&
@@ -3475,12 +3524,12 @@ void tcpm_poll_event(struct tcpm_port *port)
 		    (port->state == DEBUG_ACC_ATTACHED) ||
 		    (port->state == AUDIO_ACC_ATTACHED)))
 		    break;
-
-		port->tcpc->poll_event(port->tcpc);
-		port->poll_event_cnt++;
-		udelay(500);
 	}
 
+	while (port->time_count > 0) {
+		port->time_count--;
+		udelay(1000);
+	}
 	/*
 	 * At this time, call the callback function of the respective pd chip
 	 * to enter the low-power mode. In order to reduce the time spent on
@@ -3497,9 +3546,9 @@ void tcpm_poll_event(struct tcpm_port *port)
 		if (port->tcpc->enter_low_power_mode(port->tcpc,
 						     port->attached,
 						     port->pd_capable))
-			printf("failed to enter low power\n");
+			debug("failed to enter low power\n");
 		else
-			printf("PD chip enter low power mode\n");
+			debug("PD chip enter low power mode\n");
 	}
 }
 EXPORT_SYMBOL_GPL(tcpm_poll_event);
