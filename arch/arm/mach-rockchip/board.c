@@ -424,7 +424,14 @@ static void power_delivery_func(void)
 
 int board_late_init(void)
 {
-	power_delivery_func();
+	int boot_mode;
+	boot_mode = readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG);
+	if (boot_mode == BOOT_MODE_NORMAL ||
+			boot_mode == BOOT_MODE_RECOVERY ||
+			boot_mode == BOOT_MODE_UNDEFINE) {
+		power_delivery_func();
+	}
+
 #ifdef CONFIG_ROCKCHIP_SET_ETHADDR
 	rockchip_set_ethaddr();
 #endif
