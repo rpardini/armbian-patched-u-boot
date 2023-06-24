@@ -64,6 +64,34 @@
 		vin-supply = <&vcc5v0_sys>;
 	};
 
+	vcc3v3_pcie2x1l2: vcc3v3-pcie2x1l2 {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_pcie2x1l2";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+		//regulator-boot-on;
+		//regulator-always-on;
+		//gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <50000>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
+	vcc3v3_pcie2x1l1: vcc3v3-pcie2x1l2 {
+		u-boot,dm-pre-reloc;
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_pcie2x1l2";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+		//regulator-boot-on;
+		//regulator-always-on;
+		//gpios = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <50000>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+
 	led_sys: led-sys {
 		u-boot,dm-pre-reloc;
 		compatible = "regulator-fixed";
@@ -76,11 +104,34 @@
 	};
 };
 
+&pcie2x1l1 {
+	reset-gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_HIGH>;
+	rockchip,init-delay-ms = <100>;
+	vpcie3v3-supply = <&vcc3v3_pcie2x1l1>;
+	status = "okay";
+};
+
+&pcie2x1l2 {
+	u-boot,dm-pre-reloc;
+	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
+	vpcie3v3-supply = <&vcc3v3_pcie2x1l2>;
+	status = "okay";
+};
+
+&combphy0_ps {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
+&combphy2_psu {
+	u-boot,dm-pre-reloc;
+	status = "okay";
+};
+
 &usb2phy0_grf {
 	status = "okay";
 	u-boot,dm-pre-reloc;
 };
-
 
 &u2phy0 {
 	status = "okay";
