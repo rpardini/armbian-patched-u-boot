@@ -33,10 +33,9 @@ DECLARE_GLOBAL_DATA_PTR;
 #define PMU_CRU_GATE_CON00	0x800
 #define PMU_CRU_SOFTRST_CON00	0xa00
 
-#define VPU_IOC_BASE		0xff560000
-#define GPIO1C_IOMUX_SEL_1	0x034
-#define GPIO1D_IOMUX_SEL_0	0x038
-#define GPIO1D_IOMUX_SEL_1	0x03c
+#define GPIO1C_IOMUX_SEL_H	0x034
+#define GPIO1D_IOMUX_SEL_L	0x038
+#define GPIO1D_IOMUX_SEL_H	0x03c
 
 #define CPU_PRIORITY_REG	0xff210008
 #define QOS_PRIORITY_LEVEL(h, l)	((((h) & 7) << 8) | ((l) & 7))
@@ -429,9 +428,9 @@ int arch_cpu_init(void)
 	writel(val & 0x0000ffff, FIREWALL_DDR_BASE + FW_DDR_MST6_REG);
 
 	/* Set emmc iomux */
-	writel(0xffff1111, VPU_IOC_BASE + GPIO1C_IOMUX_SEL_1);
-	writel(0xffff1111, VPU_IOC_BASE + GPIO1D_IOMUX_SEL_0);
-	writel(0xffff1111, VPU_IOC_BASE + GPIO1D_IOMUX_SEL_1);
+	writel(0xffff1111, GPIO1_IOC_BASE + GPIO1C_IOMUX_SEL_H);
+	writel(0xffff1111, GPIO1_IOC_BASE + GPIO1D_IOMUX_SEL_L);
+	writel(0xffff1111, GPIO1_IOC_BASE + GPIO1D_IOMUX_SEL_H);
 
 #if defined(CONFIG_ROCKCHIP_SFC)
 	/* Set the fspi to access ddr memory */
@@ -439,9 +438,9 @@ int arch_cpu_init(void)
 	writel(val & 0xFFFF0000uL, FIREWALL_DDR_BASE + FW_DDR_MST7_REG);
 
 	/* Set fspi iomux */
-	writel(0xffff2222, VPU_IOC_BASE + GPIO1C_IOMUX_SEL_1);
-	writel(0x000f0002, VPU_IOC_BASE + GPIO1D_IOMUX_SEL_0);
-	writel(0x00f00020, VPU_IOC_BASE + GPIO1D_IOMUX_SEL_1);
+	writel(0xffff2222, GPIO1_IOC_BASE + GPIO1C_IOMUX_SEL_H);
+	writel(0x000f0002, GPIO1_IOC_BASE + GPIO1D_IOMUX_SEL_L);
+	writel(0x00f00020, GPIO1_IOC_BASE + GPIO1D_IOMUX_SEL_H);
 #endif
 
 #endif
@@ -471,52 +470,6 @@ int spl_fit_standalone_release(char *id, uintptr_t entry_point)
 	/* writel(0x00ff0022, GPIO2_IOC_BASE + 0x44); */
 	/* release the mcu */
 	writel(0x00800000, PMU_CRU_BASE + PMU_CRU_SOFTRST_CON00);
-
-	return 0;
-}
-#endif
-
-#if CONFIG_IS_ENABLED(CLK_SCMI)
-#include <clk.h>
-#include <asm/arch/clock.h>
-#include <dt-bindings/clock/rk3528-cru.h>
-
-int set_armclk_rate(void)
-{
-	struct clk clk;
-	u32 *rate = NULL;
-	int size, count;
-	int ret;
-
-	ret = rockchip_get_scmi_clk(&clk.dev);
-	if (ret) {
-		printf("Failed to get scmi clk, ret=%d\n", ret);
-		return ret;
-	}
-
-	size = dev_read_size(clk.dev, "rockchip,clk-init");
-	if (size < 0)
-		return 0;
-
-	count = size / sizeof(u32);
-	rate = calloc(count, sizeof(u32));
-	if (!rate)
-		return -ENOMEM;
-
-	ret = dev_read_u32_array(clk.dev, "rockchip,clk-init", rate, count);
-	if (ret) {
-		printf("Failed to get 'rockchip,clk-init' prop\n");
-		goto out;
-	}
-
-	clk.id = SCMI_CLK_CPU;
-	ret = clk_set_rate(&clk, rate[0]);
-	if (ret < 0) {
-		printf("Failed to set cpu %dhz, ret=%d\n", rate[0], ret);
-		goto out;
-	}
-out:
-	free(rate);
 
 	return 0;
 }

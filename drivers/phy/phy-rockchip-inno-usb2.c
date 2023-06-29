@@ -284,6 +284,11 @@ int rockchip_chg_get_type(void)
 		return POWER_SUPPLY_TYPE_UNKNOWN;
 	}
 
+#ifdef CONFIG_ROCKCHIP_RK3036
+	chg_type = POWER_SUPPLY_TYPE_USB;
+	goto out;
+#endif
+
 	/* Suspend USB-PHY and put the controller in non-driving mode */
 	property_enable(base, &port_cfg->phy_sus, true);
 	property_enable(base, &rphy->phy_cfg->chg_det.opmode, false);
@@ -805,6 +810,17 @@ static int rk3328_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 	return 0;
 }
 
+static int rv1106_usb2phy_tuning(struct rockchip_usb2phy *rphy)
+{
+	u32 reg;
+
+	/* Set HS disconnect detect mode to single ended detect mode */
+	reg = readl(rphy->phy_base + 0x70);
+	writel(reg | BIT(2), rphy->phy_base + 0x70);
+
+	return 0;
+}
+
 static int rk3528_usb2phy_tuning(struct rockchip_usb2phy *rphy)
 {
 	u32 reg;
@@ -974,6 +990,43 @@ static const struct rockchip_usb2phy_cfg rk1808_phy_cfgs[] = {
 			.rdm_pdwn_en	= { 0x0108, 10, 10, 0, 1 },
 			.vdm_src_en	= { 0x0108, 12, 12, 0, 1 },
 			.vdp_src_en	= { 0x0108, 11, 11, 0, 1 },
+		},
+	},
+	{ /* sentinel */ }
+};
+
+static const struct rockchip_usb2phy_cfg rk3036_phy_cfgs[] = {
+	{
+		.reg = 0x17c,
+		.num_ports	= 2,
+		.clkout_ctl	= { 0x017c, 11, 11, 1, 0 },
+		.port_cfgs	= {
+			[USB2PHY_PORT_OTG] = {
+				.phy_sus	= { 0x017c, 8, 0, 0, 0x1d1 },
+				.bvalid_det_en	= { 0x017c, 14, 14, 0, 1 },
+				.bvalid_det_st	= { 0x017c, 15, 15, 0, 1 },
+				.bvalid_det_clr	= { 0x017c, 15, 15, 0, 1 },
+				.iddig_output	= { 0x017c, 10, 10, 0, 1 },
+				.iddig_en	= { 0x017c, 9, 9, 0, 1 },
+				.idfall_det_en  = { 0x01a0, 2, 2, 0, 1 },
+				.idfall_det_st  = { 0x01a0, 3, 3, 0, 1 },
+				.idfall_det_clr = { 0x01a0, 3, 3, 0, 1 },
+				.idrise_det_en  = { 0x01a0, 0, 0, 0, 1 },
+				.idrise_det_st  = { 0x01a0, 1, 1, 0, 1 },
+				.idrise_det_clr = { 0x01a0, 1, 1, 0, 1 },
+				.ls_det_en	= { 0x017c, 12, 12, 0, 1 },
+				.ls_det_st	= { 0x017c, 13, 13, 0, 1 },
+				.ls_det_clr	= { 0x017c, 13, 13, 0, 1 },
+				.utmi_bvalid	= { 0x014c, 5, 5, 0, 1 },
+				.utmi_iddig	= { 0x014c, 8, 8, 0, 1 },
+				.utmi_ls	= { 0x014c, 7, 6, 0, 1 },
+			},
+			[USB2PHY_PORT_HOST] = {
+				.phy_sus	= { 0x0194, 8, 0, 0, 0x1d1 },
+				.ls_det_en	= { 0x0194, 14, 14, 0, 1 },
+				.ls_det_st	= { 0x0194, 15, 15, 0, 1 },
+				.ls_det_clr	= { 0x0194, 15, 15, 0, 1 }
+			}
 		},
 	},
 	{ /* sentinel */ }
@@ -1348,6 +1401,7 @@ static const struct rockchip_usb2phy_cfg rv1106_phy_cfgs[] = {
 	{
 		.reg = 0xff3e0000,
 		.num_ports	= 1,
+		.phy_tuning	= rv1106_usb2phy_tuning,
 		.clkout_ctl	= { 0x0058, 4, 4, 1, 0 },
 		.port_cfgs	= {
 			[USB2PHY_PORT_OTG] = {
@@ -1621,6 +1675,8 @@ static const struct rockchip_usb2phy_cfg rk3588_phy_cfgs[] = {
 				.ls_det_en	= { 0x0080, 0, 0, 0, 1 },
 				.ls_det_st	= { 0x0084, 0, 0, 0, 1 },
 				.ls_det_clr	= { 0x0088, 0, 0, 0, 1 },
+				.utmi_avalid	= { 0x00c0, 7, 7, 0, 1 },
+				.utmi_bvalid	= { 0x00c0, 6, 6, 0, 1 },
 				.utmi_iddig	= { 0x00c0, 5, 5, 0, 1 },
 				.utmi_ls	= { 0x00c0, 10, 9, 0, 1 },
 			}
@@ -1688,19 +1744,48 @@ static const struct rockchip_usb2phy_cfg rk3588_phy_cfgs[] = {
 };
 
 static const struct udevice_id rockchip_usb2phy_ids[] = {
+#ifdef CONFIG_ROCKCHIP_RK1808
 	{ .compatible = "rockchip,rk1808-usb2phy", .data = (ulong)&rk1808_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3036
+	{ .compatible = "rockchip,rk3036-usb2phy", .data = (ulong)&rk3036_phy_cfgs },
+#endif
+#if defined CONFIG_ROCKCHIP_RK3128 || defined CONFIG_ROCKCHIP_RK3126
 	{ .compatible = "rockchip,rk3128-usb2phy", .data = (ulong)&rk312x_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK322X
 	{ .compatible = "rockchip,rk322x-usb2phy", .data = (ulong)&rk322x_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3308
 	{ .compatible = "rockchip,rk3308-usb2phy", .data = (ulong)&rk3308_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3328
 	{ .compatible = "rockchip,rk3328-usb2phy", .data = (ulong)&rk3328_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3368
 	{ .compatible = "rockchip,rk3368-usb2phy", .data = (ulong)&rk3368_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3399
 	{ .compatible = "rockchip,rk3399-usb2phy", .data = (ulong)&rk3399_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3528
 	{ .compatible = "rockchip,rk3528-usb2phy", .data = (ulong)&rk3528_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3562
 	{ .compatible = "rockchip,rk3562-usb2phy", .data = (ulong)&rk3562_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3568
 	{ .compatible = "rockchip,rk3568-usb2phy", .data = (ulong)&rk3568_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RK3588
 	{ .compatible = "rockchip,rk3588-usb2phy", .data = (ulong)&rk3588_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RV1106
 	{ .compatible = "rockchip,rv1106-usb2phy", .data = (ulong)&rv1106_phy_cfgs },
+#endif
+#ifdef CONFIG_ROCKCHIP_RV1108
 	{ .compatible = "rockchip,rv1108-usb2phy", .data = (ulong)&rv1108_phy_cfgs },
+#endif
 	{ }
 };
 

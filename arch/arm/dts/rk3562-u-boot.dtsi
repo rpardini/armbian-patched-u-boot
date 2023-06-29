@@ -14,6 +14,16 @@
 		stdout-path = &uart2;
 		u-boot,spl-boot-order = &sdmmc0, &sdhci, &spi_nand, &spi_nor;
 	};
+
+	secure-otp@ff920000 {
+		compatible = "rockchip,rk3562-secure-otp";
+		reg = <0x0 0xff920000 0x0 0x4000>;
+		secure_conf = <0xff020034>;
+		mask_addr = <0x0>;
+		cru_rst_addr = <0xff130438>;
+		u-boot,dm-spl;
+		status = "okay";
+	};
 };
 
 &sys_grf {
@@ -37,19 +47,19 @@
 };
 
 &firmware {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &scmi {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &scmi_clk {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &scmi_shmem {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &cru {
@@ -96,7 +106,13 @@
 
 &sdmmc0 {
 	u-boot,dm-spl;
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdmmc0_clk &sdmmc0_cmd &sdmmc0_det &sdmmc0_bus4>;
 	status = "okay";
+};
+
+&sdmmc0_pins {
+	u-boot,dm-spl;
 };
 
 &sdmmc0_bus4 {
@@ -146,6 +162,26 @@
 	status = "okay";
 };
 
+&gpio0 {
+	u-boot,dm-pre-reloc;
+};
+
+&gpio1 {
+	u-boot,dm-pre-reloc;
+};
+
+&gpio2 {
+	u-boot,dm-pre-reloc;
+};
+
+&gpio3 {
+	u-boot,dm-pre-reloc;
+};
+
+&gpio4 {
+	u-boot,dm-pre-reloc;
+};
+
 &pcfg_pull_up_drv_level_2 {
 	u-boot,dm-spl;
 	status = "okay";
@@ -154,10 +190,6 @@
 &pcfg_pull_up {
 	u-boot,dm-spl;
 	status = "okay";
-};
-
-&gpio1 {
-	u-boot,dm-spl;
 };
 
 &u2phy {

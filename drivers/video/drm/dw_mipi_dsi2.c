@@ -22,7 +22,6 @@
 #include <asm/arch-rockchip/clock.h>
 #include <linux/iopoll.h>
 
-#include "rockchip_bridge.h"
 #include "rockchip_display.h"
 #include "rockchip_crtc.h"
 #include "rockchip_connector.h"
@@ -652,6 +651,69 @@ static void dw_mipi_dsi2_set_cmd_mode(struct dw_mipi_dsi2 *dsi2)
 		printf("failed to enter cmd mode\n");
 }
 
+static void dw_mipi_dsi2_enable(struct dw_mipi_dsi2 *dsi2)
+{
+	dw_mipi_dsi2_ipi_set(dsi2);
+
+	if (dsi2->mode_flags & MIPI_DSI_MODE_VIDEO)
+		dw_mipi_dsi2_set_vid_mode(dsi2);
+	else
+		dw_mipi_dsi2_set_data_stream_mode(dsi2);
+
+	if (dsi2->slave)
+		dw_mipi_dsi2_enable(dsi2->slave);
+}
+
+static void dw_mipi_dsi2_disable(struct dw_mipi_dsi2 *dsi2)
+{
+	dsi_write(dsi2, DSI2_IPI_PIX_PKT_CFG, 0);
+	dw_mipi_dsi2_set_cmd_mode(dsi2);
+
+	if (dsi2->slave)
+		dw_mipi_dsi2_disable(dsi2->slave);
+}
+
+static void dw_mipi_dsi2_post_disable(struct dw_mipi_dsi2 *dsi2)
+{
+	if (!dsi2->prepared)
+		return;
+
+	dsi_write(dsi2, DSI2_PWR_UP, RESET);
+
+	if (dsi2->dcphy.phy)
+		rockchip_phy_power_off(dsi2->dcphy.phy);
+
+	dsi2->prepared = false;
+
+	if (dsi2->slave)
+		dw_mipi_dsi2_post_disable(dsi2->slave);
+}
+
+static int dw_mipi_dsi2_connector_pre_init(struct rockchip_connector *conn,
+					   struct display_state *state)
+{
+	struct connector_state *conn_state = &state->conn_state;
+	struct dw_mipi_dsi2 *dsi2 = dev_get_priv(conn->dev);
+	struct mipi_dsi_host *host = dev_get_platdata(dsi2->dev);
+	struct mipi_dsi_device *device;
+	char name[20];
+
+	conn_state->type = DRM_MODE_CONNECTOR_DSI;
+
+	if (conn->bridge) {
+		device = dev_get_platdata(conn->bridge->dev);
+		if (!device)
+			return -ENODEV;
+
+		device->host = host;
+		sprintf(name, "%s.%d", host->dev->name, device->channel);
+		device_set_name(conn->bridge->dev, name);
+		mipi_dsi_attach(device);
+	}
+
+	return 0;
+}
+
 static int dw_mipi_dsi2_get_dsc_params_from_sink(struct dw_mipi_dsi2 *dsi2)
 {
 	struct udevice *dev = dsi2->device->dev;
@@ -703,87 +765,6 @@ static int dw_mipi_dsi2_get_dsc_params_from_sink(struct dw_mipi_dsi2 *dsi2)
 	}
 
 	dsi2->pps = pps;
-
-	return 0;
-}
-
-static void dw_mipi_dsi2_enable(struct dw_mipi_dsi2 *dsi2)
-{
-	dw_mipi_dsi2_ipi_set(dsi2);
-
-	if (dsi2->mode_flags & MIPI_DSI_MODE_VIDEO)
-		dw_mipi_dsi2_set_vid_mode(dsi2);
-	else
-		dw_mipi_dsi2_set_data_stream_mode(dsi2);
-
-	if (dsi2->slave)
-		dw_mipi_dsi2_enable(dsi2->slave);
-}
-
-static void dw_mipi_dsi2_disable(struct dw_mipi_dsi2 *dsi2)
-{
-	dsi_write(dsi2, DSI2_IPI_PIX_PKT_CFG, 0);
-	dw_mipi_dsi2_set_cmd_mode(dsi2);
-
-	if (dsi2->slave)
-		dw_mipi_dsi2_disable(dsi2->slave);
-}
-
-static void dw_mipi_dsi2_post_disable(struct dw_mipi_dsi2 *dsi2)
-{
-	if (!dsi2->prepared)
-		return;
-
-	dsi_write(dsi2, DSI2_PWR_UP, RESET);
-
-	if (dsi2->dcphy.phy)
-		rockchip_phy_power_off(dsi2->dcphy.phy);
-
-	dsi2->prepared = false;
-
-	if (dsi2->slave)
-		dw_mipi_dsi2_post_disable(dsi2->slave);
-}
-
-static int dw_mipi_dsi2_connector_pre_init(struct rockchip_connector *conn,
-					   struct display_state *state)
-{
-	struct dw_mipi_dsi2 *dsi2 = dev_get_priv(conn->dev);
-	struct mipi_dsi_host *host = dev_get_platdata(dsi2->dev);
-	struct mipi_dsi_device *device;
-	char name[20];
-	struct udevice *dev;
-
-	device = calloc(1, sizeof(struct dw_mipi_dsi2));
-	if (!device)
-		return -ENOMEM;
-
-	if (conn->bridge)
-		dev = conn->bridge->dev;
-	else if (conn->panel)
-		dev = conn->panel->dev;
-	else
-		return -ENODEV;
-
-	device->dev = dev;
-	device->host = host;
-	device->lanes = dev_read_u32_default(dev, "dsi,lanes", 4);
-	device->channel = dev_read_u32_default(dev, "reg", 0);
-	device->format = dev_read_u32_default(dev, "dsi,format",
-					      MIPI_DSI_FMT_RGB888);
-	device->mode_flags = dev_read_u32_default(dev, "dsi,flags",
-						  MIPI_DSI_MODE_VIDEO |
-						  MIPI_DSI_MODE_VIDEO_BURST |
-						  MIPI_DSI_MODE_VIDEO_HBP |
-						  MIPI_DSI_MODE_LPM |
-						  MIPI_DSI_MODE_EOT_PACKET);
-
-	sprintf(name, "%s.%d", host->dev->name, device->channel);
-	device_set_name(dev, name);
-	dsi2->device = device;
-	dev->parent_platdata = device;
-
-	mipi_dsi_attach(dsi2->device);
 
 	return 0;
 }
@@ -970,7 +951,7 @@ static void dw_mipi_dsi2_phy_clk_mode_cfg(struct dw_mipi_dsi2 *dsi2)
 		val |= NON_CONTINUOUS_CLK;
 
 	/* The Escape clock ranges from 1MHz to 20MHz. */
-	esc_clk_div = DIV_ROUND_UP(sys_clk, 10 * 2);
+	esc_clk_div = DIV_ROUND_UP(sys_clk, 20 * 2);
 	val |= PHY_LPTX_CLK_DIV(esc_clk_div);
 
 	dsi_write(dsi2, DSI2_PHY_CLK_CFG, val);
@@ -1159,6 +1140,41 @@ static int dw_mipi_dsi2_connector_disable(struct rockchip_connector *conn,
 	return 0;
 }
 
+static int dw_mipi_dsi2_connector_mode_valid(struct rockchip_connector *conn,
+					     struct display_state *state)
+{
+	struct dw_mipi_dsi2 *dsi2 = dev_get_priv(conn->dev);
+	struct connector_state *conn_state = &state->conn_state;
+	u8 min_pixels = dsi2->slave ? 8 : 4;
+	struct videomode vm;
+
+	drm_display_mode_to_videomode(&conn_state->mode, &vm);
+
+	/*
+	 * the minimum region size (HSA,HBP,HACT,HFP) is 4 pixels
+	 * which is the ip known issues and limitations.
+	 */
+	if (!(vm.hsync_len < min_pixels || vm.hback_porch < min_pixels ||
+	    vm.hfront_porch < min_pixels || vm.hactive < min_pixels))
+		return MODE_OK;
+
+	if (vm.hsync_len < min_pixels)
+		vm.hsync_len = min_pixels;
+
+	if (vm.hback_porch < min_pixels)
+		vm.hback_porch = min_pixels;
+
+	if (vm.hfront_porch < min_pixels)
+		vm.hfront_porch = min_pixels;
+
+	if (vm.hactive < min_pixels)
+		vm.hactive = min_pixels;
+
+	drm_display_mode_from_videomode(&vm, &conn_state->mode);
+
+	return MODE_OK;
+}
+
 static const struct rockchip_connector_funcs dw_mipi_dsi2_connector_funcs = {
 	.pre_init = dw_mipi_dsi2_connector_pre_init,
 	.init = dw_mipi_dsi2_connector_init,
@@ -1166,6 +1182,7 @@ static const struct rockchip_connector_funcs dw_mipi_dsi2_connector_funcs = {
 	.unprepare = dw_mipi_dsi2_connector_unprepare,
 	.enable = dw_mipi_dsi2_connector_enable,
 	.disable = dw_mipi_dsi2_connector_disable,
+	.mode_valid = dw_mipi_dsi2_connector_mode_valid,
 };
 
 static int dw_mipi_dsi2_probe(struct udevice *dev)
@@ -1254,6 +1271,7 @@ static int dw_mipi_dsi2_host_attach(struct mipi_dsi_host *host,
 	dsi2->channel = device->channel;
 	dsi2->format = device->format;
 	dsi2->mode_flags = device->mode_flags;
+	dsi2->device = device;
 
 	return 0;
 }
@@ -1273,6 +1291,45 @@ static int dw_mipi_dsi2_bind(struct udevice *dev)
 	return dm_scan_fdt_dev(dev);
 }
 
+static int dw_mipi_dsi2_child_post_bind(struct udevice *dev)
+{
+	struct mipi_dsi_host *host = dev_get_platdata(dev->parent);
+	struct mipi_dsi_device *device = dev_get_parent_platdata(dev);
+	char name[20];
+
+	sprintf(name, "%s.%d", host->dev->name, device->channel);
+	device_set_name(dev, name);
+
+	device->dev = dev;
+	device->host = host;
+	device->lanes = dev_read_u32_default(dev, "dsi,lanes", 4);
+	device->format = dev_read_u32_default(dev, "dsi,format",
+					      MIPI_DSI_FMT_RGB888);
+	device->mode_flags = dev_read_u32_default(dev, "dsi,flags",
+						  MIPI_DSI_MODE_VIDEO |
+						  MIPI_DSI_MODE_VIDEO_BURST |
+						  MIPI_DSI_MODE_VIDEO_HBP |
+						  MIPI_DSI_MODE_LPM |
+						  MIPI_DSI_MODE_EOT_PACKET);
+	device->channel = dev_read_u32_default(dev, "reg", 0);
+
+	return 0;
+}
+
+static int dw_mipi_dsi2_child_pre_probe(struct udevice *dev)
+{
+	struct mipi_dsi_device *device = dev_get_parent_platdata(dev);
+	int ret;
+
+	ret = mipi_dsi_attach(device);
+	if (ret) {
+		dev_err(dev, "mipi_dsi_attach() failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 U_BOOT_DRIVER(dw_mipi_dsi2) = {
 	.name = "dw_mipi_dsi2",
 	.id = UCLASS_DISPLAY,
@@ -1280,5 +1337,8 @@ U_BOOT_DRIVER(dw_mipi_dsi2) = {
 	.probe = dw_mipi_dsi2_probe,
 	.bind = dw_mipi_dsi2_bind,
 	.priv_auto_alloc_size = sizeof(struct dw_mipi_dsi2),
+	.per_child_platdata_auto_alloc_size = sizeof(struct mipi_dsi_device),
 	.platdata_auto_alloc_size = sizeof(struct mipi_dsi_host),
+	.child_post_bind = dw_mipi_dsi2_child_post_bind,
+	.child_pre_probe = dw_mipi_dsi2_child_pre_probe,
 };

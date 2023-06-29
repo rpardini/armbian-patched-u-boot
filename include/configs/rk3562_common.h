@@ -34,6 +34,15 @@
 #define GICD_BASE			0xfe901000
 #define GICC_BASE			0xfe902000
 
+/* secure otp */
+#define OTP_UBOOT_ROLLBACK_OFFSET	0x350
+#define OTP_UBOOT_ROLLBACK_WORDS	2	/* 64 bits, 2 words */
+#define OTP_ALL_ONES_NUM_BITS		32
+#define OTP_SECURE_BOOT_ENABLE_ADDR	0x20
+#define OTP_SECURE_BOOT_ENABLE_SIZE	1
+#define OTP_RSA_HASH_ADDR		0x180
+#define OTP_RSA_HASH_SIZE		32
+
 /* MMC/SD IP block */
 #define CONFIG_BOUNCE_BUFFER
 
@@ -53,7 +62,7 @@
 	"scriptaddr=0x00c00000\0" \
 	"pxefile_addr_r=0x00e00000\0" \
 	"fdt_addr_r=0x08300000\0" \
-	"kernel_addr_r=0x00280000\0" \
+	"kernel_addr_r=0x00400000\0" \
 	"kernel_addr_c=0x04080000\0" \
 	"ramdisk_addr_r=0x0a200000\0"
 
@@ -70,5 +79,6 @@
 /* rockchip ohci host driver */
 #define CONFIG_USB_OHCI_NEW
 #define CONFIG_SYS_USB_OHCI_MAX_ROOT_PORTS	1
+#define CONFIG_LIB_HW_RAND
 
 #endif

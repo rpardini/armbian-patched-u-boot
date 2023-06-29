@@ -33,6 +33,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define SYS_SGRF_SOC_CON3	0x000c
 #define SYS_SGRF_SOC_CON4	0x0010
 #define SYS_SGRF_SOC_CON9	0x0024
+#define SYS_SGRF_SOC_CON10	0x0028
 #define SYS_SGRF_SOC_CON12	0x0030
 #define SYS_SGRF_FW_SLV_CON0	0x0080
 #define SYS_SGRF_FW_SLV_CON1	0x0084
@@ -52,9 +53,11 @@ DECLARE_GLOBAL_DATA_PTR;
 #define PERI_GRF_BASE		0xff040000
 #define PERI_GRF_AUDIO_CON	0x0070
 
+#define PIPEPHY_GRF_BASE	0xff098000
+#define PIPEPHY_PIPE_CON5	0x0014
+
 #define TOP_CRU_BASE		0xff100000
 #define TOP_CRU_GATE_CON23	0x035c
-#define TOP_CRU_SOFTRST_CON17	0x0444
 #define TOP_CRU_SOFTRST_CON23	0x045c
 #define TOP_CRU_CM0_GATEMASK	0x0680
 
@@ -64,11 +67,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #define PMU1_CRU_GATE_CON02	0x0188
 #define PMU1_CRU_SOFTRST_CON02	0x0208
 #define PMU1_CRU_CM0_GATEMASK	0x0420
-
-#define VPU_IOC_BASE		0xff060000
-#define GPIO1A_IOMUX_SEL_0	0x0
-#define GPIO1A_IOMUX_SEL_1	0x4
-#define GPIO1B_IOMUX_SEL_0	0x8
 
 #define PMU_BASE_ADDR		0xff258000
 #define PMU2_BIU_IDLE_SFTCON0	0x110
@@ -144,7 +142,18 @@ struct mm_region *mem_map = rk3562_mem_map;
 
 #define	GPIO0_IOC_BASE			0xFF080000
 #define	GPIO1_IOC_BASE			0xFF060000
+#define	GPIO1A_IOMUX_SEL_L		0x0
+#define	GPIO1A_IOMUX_SEL_H		0x4
+#define	GPIO1B_IOMUX_SEL_L		0x8
+#define	GPIO1_IOC_GPIO1A_DS0		0x200
+#define	GPIO1_IOC_GPIO1A_DS1		0x204
+#define	GPIO1_IOC_GPIO1B_DS0		0x210
+
 #define	GPIO2_IOC_BASE			0xFF060000
+#define	GPIO2_IOC_IO_VSEL0		0x300
+/* GPIO2_IOC_IO_VSEL0 */
+#define	POC_VCCIO2_VD_3V3		BIT(12)
+
 #define	GPIO3_IOC_BASE			0xFF070000
 #define	GPIO4_IOC_BASE			0xFF070000
 
@@ -584,11 +593,9 @@ static void qos_priority_init(void)
 	writel(QOS_PRIORITY_LEVEL(2, 2), DMA2DDR_PRIORITY_REG);
 	writel(QOS_PRIORITY_LEVEL(2, 2), PCIE_PRIORITY_REG);
 }
-#endif
 
 int arch_cpu_init(void)
 {
-#if defined(CONFIG_SPL_BUILD)
 	u32 val;
 
 	/* Set the emmc to access ddr memory */
@@ -599,53 +606,47 @@ int arch_cpu_init(void)
 	val = readl(FIREWALL_DDR_BASE + FW_DDR_MST6_REG);
 	writel(val & 0xff0000ff, FIREWALL_DDR_BASE + FW_DDR_MST6_REG);
 
-	/* Set SAIx_MCLK as output default */
-	writel(0x0a100a10, PERI_GRF_BASE + PERI_GRF_AUDIO_CON);
+	/*
+	 * Set SAIx_MCLK as input default
+	 *
+	 * It's safe to set mclk as input default to avoid high freq glitch
+	 * which may make devices work unexpected. And then enabled by
+	 * kernel stage or any state where user use it.
+	 */
+	writel(0x0a100000, PERI_GRF_BASE + PERI_GRF_AUDIO_CON);
+
+	/* Assert reset the pipe phy to save power and de-assert when in use */
+	writel(0x00030001, PIPEPHY_GRF_BASE + PIPEPHY_PIPE_CON5);
 
 #if defined(CONFIG_ROCKCHIP_SFC)
 	/* Set the fspi to access ddr memory */
 	val = readl(FIREWALL_DDR_BASE + FW_DDR_MST5_REG);
 	writel(val & 0x00ffffff, FIREWALL_DDR_BASE + FW_DDR_MST5_REG);
+
+	/*
+	 * Fix fspi io ds level:
+	 *
+	 * level 2 for 1V8
+	 * level 3 for 3V3
+	 */
+	if (readl(GPIO1_IOC_BASE + GPIO1A_IOMUX_SEL_L) == 0x2222) {
+		if (readl(GPIO2_IOC_BASE + GPIO2_IOC_IO_VSEL0) & POC_VCCIO2_VD_3V3) {
+			writel(0x3f3f0f0f, GPIO1_IOC_BASE + GPIO1_IOC_GPIO1A_DS0);
+			writel(0x3f3f0f0f, GPIO1_IOC_BASE + GPIO1_IOC_GPIO1A_DS1);
+			writel(0x3f3f0f0f, GPIO1_IOC_BASE + GPIO1_IOC_GPIO1B_DS0);
+		} else {
+			writel(0x3f3f0707, GPIO1_IOC_BASE + GPIO1_IOC_GPIO1A_DS0);
+			writel(0x3f3f0707, GPIO1_IOC_BASE + GPIO1_IOC_GPIO1A_DS1);
+			writel(0x3f3f0707, GPIO1_IOC_BASE + GPIO1_IOC_GPIO1B_DS0);
+		}
+	}
 #endif
 
-	/* Assert reset the combphy_pu to save power and de-assert reset it in kernel */
-	writel(0x00080008, TOP_CRU_BASE + TOP_CRU_SOFTRST_CON17);
-
-#ifndef CONFIG_TPL_BUILD
 	qos_priority_init();
-#endif
 
-#elif defined(CONFIG_SUPPORT_USBPLUG)
-	u32 val;
-
-	/* Set the usb to access ddr memory */
-	val = readl(FIREWALL_DDR_BASE + FW_DDR_MST3_REG);
-	writel(val & 0x0000ffff, FIREWALL_DDR_BASE + FW_DDR_MST3_REG);
-
-	/* Set the emmc to access ddr memory */
-	val = readl(FIREWALL_DDR_BASE + FW_DDR_MST4_REG);
-	writel(val & 0x0000ffff, FIREWALL_DDR_BASE + FW_DDR_MST4_REG);
-
-	/* Set emmc iomux */
-	writel(0xffff1111, VPU_IOC_BASE + GPIO1A_IOMUX_SEL_0);
-	writel(0xffff1111, VPU_IOC_BASE + GPIO1A_IOMUX_SEL_1);
-	writel(0x0fff0111, VPU_IOC_BASE + GPIO1B_IOMUX_SEL_0);
-
-#if defined(CONFIG_ROCKCHIP_SFC)
-	/* Set the fspi to access ddr memory */
-	val = readl(FIREWALL_DDR_BASE + FW_DDR_MST5_REG);
-	writel(val & 0x00ffffff, FIREWALL_DDR_BASE + FW_DDR_MST5_REG);
-
-	/* Set fspi iomux */
-	writel(0xffff2222, VPU_IOC_BASE + GPIO1A_IOMUX_SEL_0);
-	writel(0x00ff0022, VPU_IOC_BASE + GPIO1B_IOMUX_SEL_0);
-#endif
-
-#endif
 	return 0;
 }
 
-#ifdef CONFIG_SPL_BUILD
 int spl_fit_standalone_release(char *id, uintptr_t entry_point)
 {
 	u32 val;
@@ -673,8 +674,10 @@ int spl_fit_standalone_release(char *id, uintptr_t entry_point)
 	writel(0x80008000, SYS_SGRF_BASE + SYS_SGRF_SOC_CON3);
 	/* set start addr, mcu_code_addr_start */
 	writel(0xffff0000 | (entry_point >> 16), SYS_SGRF_BASE + SYS_SGRF_SOC_CON9);
+	/* set start addr, mcu_experi_addr_start */
+	writel(0xffffa000, SYS_SGRF_BASE + SYS_SGRF_SOC_CON10);
 	/* mcu_cache_peripheral_addr */
-	writel(0xfc000000, SYS_GRF_BASE + SYS_GRF_SOC_CON5);
+	writel(0xa0000000, SYS_GRF_BASE + SYS_GRF_SOC_CON5);
 	writel(0xffb40000, SYS_GRF_BASE + SYS_GRF_SOC_CON6);
 	/* jtag_m1 gpio1b5/gpio1b6 iomux */
 	/* writel(0x0ff00220, 0xff06000c); */

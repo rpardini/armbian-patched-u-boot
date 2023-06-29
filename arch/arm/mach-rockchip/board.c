@@ -56,6 +56,10 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#ifdef CONFIG_ARM64
+static ulong orig_images_ep;
+#endif
+
 __weak int rk_board_late_init(void)
 {
 	return 0;
@@ -408,6 +412,37 @@ static void cmdline_handle(void)
 				env_set("reboot_mode", "normal");
 		}
 	}
+
+	if (rockchip_get_boot_mode() == BOOT_MODE_QUIESCENT)
+		env_update("bootargs", "androidboot.quiescent=1 pwm_bl.quiescent=1");
+}
+
+static void scan_run_cmd(void)
+{
+	char *config = CONFIG_ROCKCHIP_CMD;
+	char *cmd, *key;
+
+	key = strchr(config, ' ');
+	if (!key)
+		return;
+
+	cmd = strdup(config);
+	cmd[key - config] = 0;
+	key++;
+
+	if (!strcmp(key, "-")) {
+		run_command(cmd, 0);
+	} else {
+#ifdef CONFIG_DM_KEY
+		ulong map;
+
+		map = simple_strtoul(key, NULL, 10);
+		if (key_is_pressed(key_read(map))) {
+			printf("## Key<%ld> pressed... run cmd '%s'\n", map, cmd);
+			run_command(cmd, 0);
+		}
+#endif
+	}
 }
 
 int board_late_init(void)
@@ -419,7 +454,7 @@ int board_late_init(void)
 	rockchip_set_serialno();
 #endif
 	setup_download_mode();
-
+	scan_run_cmd();
 #ifdef CONFIG_ROCKCHIP_USB_BOOT
 	boot_from_udisk();
 #endif
@@ -427,7 +462,8 @@ int board_late_init(void)
 	charge_display();
 #endif
 #ifdef CONFIG_DRM_ROCKCHIP
-	rockchip_show_logo();
+	if (rockchip_get_boot_mode() != BOOT_MODE_QUIESCENT)
+		rockchip_show_logo();
 #endif
 #ifdef CONFIG_ROCKCHIP_EINK_DISPLAY
 	rockchip_eink_show_uboot_logo();
@@ -479,57 +515,31 @@ static void board_debug_init(void)
 		printf("Cmd interface: disabled\n");
 }
 
-#if defined(CONFIG_MTD_BLK) && defined(CONFIG_USING_KERNEL_DTB)
-static void board_mtd_blk_map_partitions(void)
-{
-	struct blk_desc *dev_desc;
-
-	dev_desc = rockchip_get_bootdev();
-	if (dev_desc)
-		mtd_blk_map_partitions(dev_desc);
-}
-#endif
-
 int board_init(void)
 {
 	board_debug_init();
-	/* optee select security level */
-#ifdef CONFIG_OPTEE_CLIENT
-	trusty_select_security_level();
-#endif
-
 #ifdef DEBUG
 	soc_clk_dump();
 #endif
-
-#ifdef CONFIG_USING_KERNEL_DTB
-#ifdef CONFIG_MTD_BLK
-	board_mtd_blk_map_partitions();
+#ifdef CONFIG_OPTEE_CLIENT
+	trusty_select_security_level();
 #endif
+#ifdef CONFIG_USING_KERNEL_DTB
 	init_kernel_dtb();
 #endif
 	early_download();
 
-	/*
-	 * pmucru isn't referenced on some platforms, so pmucru driver can't
-	 * probe that the "assigned-clocks" is unused.
-	 */
 	clks_probe();
 #ifdef CONFIG_DM_REGULATOR
-	if (regulators_enable_boot_on(is_hotkey(HK_REGULATOR)))
-		debug("%s: Can't enable boot on regulator\n", __func__);
+	regulators_enable_boot_on(is_hotkey(HK_REGULATOR));
 #endif
-
 #ifdef CONFIG_ROCKCHIP_IO_DOMAIN
 	io_domain_init();
 #endif
-
 	set_armclk_rate();
-
 #ifdef CONFIG_DM_DVFS
 	dvfs_init(true);
 #endif
-
 #ifdef CONFIG_ANDROID_AB
 	if (ab_decrease_tries())
 		printf("Decrease ab tries count fail!\n");
@@ -624,6 +634,9 @@ void arch_preboot_os(uint32_t bootm_state, bootm_headers_t *images)
 	 * But relocation is in board_quiesce_devices() until all decompress
 	 * done, mainly for saving boot time.
 	 */
+
+	orig_images_ep = images->ep;
+
 	if (data[10] == 0x00) {
 		if (round_down(images->ep, SZ_2M) != images->ep)
 			images->ep = round_down(images->ep, SZ_2M);
@@ -942,13 +955,13 @@ int board_do_bootm(int argc, char * const argv[])
 
 		if (!sysmem_alloc_base(MEM_ANDROID, (ulong)hdr, size))
 			return -ENOMEM;
-if (0) {
+
 		ret = bootm_image_populate_dtb(img);
 		if (ret) {
 			printf("bootm can't read dtb, ret=%d\n", ret);
 			return ret;
 		}
-}
+
 		ret = android_image_memcpy_separate(hdr, &load_addr);
 		if (ret) {
 			printf("board do bootm failed, ret=%d\n", ret);
@@ -1070,15 +1083,13 @@ void board_quiesce_devices(void *images)
 #endif
 #ifdef CONFIG_ARM64
 	bootm_headers_t *bootm_images = (bootm_headers_t *)images;
-	ulong kernel_addr;
 
 	/* relocate kernel after decompress cleanup */
-	kernel_addr = env_get_ulong("kernel_addr_r", 16, 0);
-	if (kernel_addr != bootm_images->ep) {
-		memmove((char *)bootm_images->ep, (const char *)kernel_addr,
+	if (orig_images_ep && orig_images_ep != bootm_images->ep) {
+		memmove((char *)bootm_images->ep, (const char *)orig_images_ep,
 			bootm_images->os.image_len);
 		printf("== DO RELOCATE == Kernel from 0x%08lx to 0x%08lx\n",
-		       kernel_addr, bootm_images->ep);
+		       orig_images_ep, bootm_images->ep);
 	}
 #endif
 

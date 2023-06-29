@@ -14,6 +14,17 @@
 		stdout-path = &uart2;
 		u-boot,spl-boot-order = &sdmmc, &sdhci, &spi_nand, &spi_nor;
 	};
+
+	secure-otp@ffcd0000 {
+		compatible = "rockchip,rk3528-secure-otp";
+		reg = <0x0 0xffcd0000 0x0 0x4000>;
+		secure_conf = <0xff4500c0>;
+		mask_addr = <0x0>;
+		cru_rst_addr = <0xff4a8080>;
+		u-boot,dm-spl;
+		status = "okay";
+	};
+
 };
 
 &grf {
@@ -32,9 +43,6 @@
 };
 
 &crypto {
-	clocks = <&cru CLK_CORE_CRYPTO>, <&cru CLK_PKA_CRYPTO>;
-	clock-names = "sclk_crypto", "apkclk_crypto";
-	clock-frequency = <200000000>, <300000000>;
 	u-boot,dm-spl;
 	status = "okay";
 };
@@ -117,19 +125,19 @@
 };
 
 &firmware {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &scmi {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &scmi_clk {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &scmi_shmem {
-	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
 };
 
 &pinctrl {
@@ -191,9 +199,4 @@
 
 &sdmmc_det {
 	u-boot,dm-spl;
-};
-
-&secure_otp {
-	u-boot,dm-spl;
-	status = "okay";
 };
