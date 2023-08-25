@@ -14,6 +14,41 @@
 #include <asm/arch/ioc_rk3588.h>
 #include <dt-bindings/clock/rk3588-cru.h>
 
+#include <fdt_support.h>
+#include <common.h>
+#include <adc.h>
+#include <android_bootloader.h>
+#include <android_image.h>
+#include <bidram.h>
+#include <bootm.h>
+#include <boot_rkimg.h>
+#include <cli.h>
+#include <crypto.h>
+#include <dm.h>
+#include <fs.h>
+#include <image.h>
+#include <key.h>
+#include <mmc.h>
+#include <malloc.h>
+#include <nvme.h>
+#include <scsi.h>
+#include <stdlib.h>
+#include <sysmem.h>
+#include <asm/io.h>
+#include <asm/arch/boot_mode.h>
+#include <asm/arch/fit.h>
+#include <asm/arch/hotkey.h>
+#include <asm/arch/param.h>
+#include <asm/arch/resource_img.h>
+#include <asm/arch/uimage.h>
+#include <dm/ofnode.h>
+#include <linux/list.h>
+#include <u-boot/sha1.h>
+#include <u-boot/sha256.h>
+#include <linux/usb/phy-rockchip-usb2.h>
+
+// #define DEBUG_FDT
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define FIREWALL_DDR_BASE		0xfe030000
@@ -1223,6 +1258,191 @@ static int fdt_fixup_modules(void *blob)
 	fdt_rm_rkvenc01(blob, rkvenc_mask);
 	fdt_rm_cpus(blob, cpu_mask);
 
+	return 0;
+}
+
+static int get_status_pin(uint8_t *status)
+{
+	int val;
+#define PA	((32*1)+(0*8+6))
+#define PB	((32*1)+(1*8+1))
+	gpio_request(PA, "PA");
+	gpio_request(PB, "PB");
+	/* Set the PA and PB pins to pull up */
+	writel(0x30003000, 0xFD5F9110);
+	writel(0x000C000C, 0xFD5F9114);
+	/* Gets the PA PB pin status */
+	gpio_direction_input(PA);
+	gpio_direction_input(PB);
+	val = gpio_get_value(PA);
+	if (val < 0) {
+		printf("Failed to get value PA val\n");
+		return -EINVAL;
+	}
+	*status = (val & 0xff) << 1;
+	val = gpio_get_value(PB);
+	if (val < 0) {
+		printf("Failed to get value PB val\n");
+		return -EINVAL;
+	}
+	*status |= val & 0xff;
+	printf("Get status:%d\n", *status);
+	return 0;
+}
+
+static int fdt_setprop_array_u32(void *fdt, int nodeoffset, const char *name, uint32_t *val, uint32_t len)
+{
+	fdt32_t tmp;
+	int ret;
+
+	if (len == 0 || len > 255) {
+		return -EINVAL;
+	}
+	for (int i = 0; i < len; i++) {
+		if (i == 0) {
+			ret = fdt_setprop(fdt, nodeoffset, name, val++, sizeof(tmp));
+		} else {
+			ret = fdt_appendprop(fdt, nodeoffset, name, val++, sizeof(tmp));
+		}
+		if (ret < 0) {
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int fdt_fixup_pcie(void *blob)
+{
+	int pcie30phy_node, pcie3x4_node, pcie3x2_node;
+	int gpio4_node, vcc3v3_node;
+	int gpio4_phandle, vcc3v3_phandle;
+	int ret;
+	uint8_t status = 0;
+	uint32_t iommu_map[3];
+
+	ret = get_status_pin(&status);
+	if (ret != 0) {
+		printf("Failed to get get_status_pin\n");
+		return -EINVAL;
+	}
+
+	pcie30phy_node = fdt_path_offset(blob, "/phy@fee80000");
+	if (pcie30phy_node < 0) {
+		printf("Failed to get pcie30phy_node node\n");
+		return -EINVAL;
+	}
+	pcie3x4_node = fdt_path_offset(blob, "/pcie@fe150000");
+	if (pcie3x4_node < 0) {
+		printf("Failed to get pcie3x4_node node\n");
+		return -EINVAL;
+	}
+	pcie3x2_node = fdt_path_offset(blob, "/pcie@fe160000");
+	if (pcie3x2_node < 0) {
+		printf("Failed to get pcie3x2_node node\n");
+		return -EINVAL;
+	}
+
+	gpio4_node = fdt_path_offset(blob, "/pinctrl/gpio@fec50000");
+	if (gpio4_node < 0) {
+		printf("Failed to get gpio4_node node\n");
+		return -EINVAL;
+	}
+	gpio4_phandle = fdt_get_phandle(blob, gpio4_node);
+	if (!gpio4_phandle) {
+		printf("Could not find phandle\n");
+		return -EINVAL;
+	}
+#ifdef DEBUG_FDT
+	run_command("fdt addr 0x0a100000", 0);
+	run_command("fdt list /vcc3v3-pcie30", 0);
+#endif
+	vcc3v3_node = fdt_path_offset(blob, "/vcc3v3-pcie30");
+	if (vcc3v3_node < 0) {
+		printf("Failed to get vcc3v3_node node\n");
+		return -EINVAL;
+	}
+
+	vcc3v3_phandle = fdt_get_phandle(blob, vcc3v3_node);
+	if (!vcc3v3_phandle) {
+		printf("Could not find phandle\n");
+		return -EINVAL;
+	}
+
+	ret = fdt_shrink_to_minimum(blob, 65536);
+	if (ret < 0){
+		printf("Failed to shrink_to_minimum\n");
+		return -EINVAL;
+	}
+
+#define PHY_MODE_PCIE_AGGREGATION   4	/* PCIe3x4 */
+#define PHY_MODE_PCIE_NANBNB		0		/* P1:PCIe3x2  +  P0:PCIe3x2 */
+#define PHY_MODE_PCIE_NANBBI		1		/* P1:PCIe3x2  +  P0:PCIe3x1*2 */
+#define PHY_MODE_PCIE_NABINB		2		/* P1:PCIe3x1*2 + P0:PCIe3x2 */
+#define PHY_MODE_PCIE_NABIBI		3		/* P1:PCIe3x1*2 + P0:PCIe3x1*2 */
+	iommu_map[0] = cpu_to_fdt32(gpio4_phandle);
+	iommu_map[1] = cpu_to_fdt32(0x0e);
+	iommu_map[2] = cpu_to_fdt32(0);
+	switch(status) {
+		case 0x00:
+			// 01:EP 23:RC
+			// pcie30phy
+			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_NANBNB);
+			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
+			// pcie3x2
+			iommu_map[1] = cpu_to_fdt32(0x08);
+			fdt_setprop_string(blob, pcie3x2_node, "status", "okay");
+			//pcie3x4
+			fdt_setprop_string(blob, pcie3x4_node, "compatible", "rockchip,rk3588-pcie-std-ep");
+			fdt_setprop_u32(blob, pcie3x4_node, "num-lanes", 2);
+			fdt_setprop_string(blob, pcie3x4_node, "status", "okay");
+			break;
+		case 0x01:
+			// 4 EP
+			// pcie30phy
+			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_AGGREGATION);
+			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
+			// pcie3x4
+			iommu_map[1] = cpu_to_fdt32(0x0e);
+			fdt_setprop_array_u32(blob, pcie3x4_node, "reset-gpios", iommu_map, 3);
+			fdt_setprop_string(blob, pcie3x4_node, "compatible", "rockchip,rk3588-pcie-std-ep");
+			fdt_setprop_string(blob, pcie3x4_node, "status", "okay");
+			break;
+		case 0x02:
+			//01:disabled 23:RC
+			// pcie30phy
+			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_AGGREGATION);
+			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
+			// pcie3x2
+			fdt_setprop_string(blob, pcie3x4_node, "status", "okay");
+			break;
+		case 0x03:
+			//4 RC
+			// pcie30phy
+			fdt_setprop_u32(blob, pcie30phy_node, "rockchip,pcie30-phymode", PHY_MODE_PCIE_AGGREGATION);
+			fdt_setprop_string(blob, pcie30phy_node, "status", "okay");
+			// pcie3x4
+			iommu_map[1] = cpu_to_fdt32(0x0e);
+			fdt_setprop_array_u32(blob, pcie3x4_node, "reset-gpios", iommu_map, 3);
+			fdt_setprop_string(blob, pcie3x4_node, "status", "okay");
+			break;
+			break;
+		default:
+			printf("no find fixup_pcie status\n");
+			break;
+	}
+#ifdef DEBUG_FDT
+	run_command("fdt addr 0x0a100000", 0);
+	run_command("fdt list /phy@fee80000", 0);
+	run_command("fdt list /pcie@fe150000", 0);
+	run_command("fdt list /pcie@fe160000", 0);
+#endif
+	return 0;
+}
+
+int rk_board_early_fdt_fixup(const void *blob)
+{
+	fdt_fixup_pcie((void *)blob);
 	return 0;
 }
 
