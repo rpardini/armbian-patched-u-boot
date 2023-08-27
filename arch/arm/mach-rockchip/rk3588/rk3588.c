@@ -47,7 +47,7 @@
 #include <u-boot/sha256.h>
 #include <linux/usb/phy-rockchip-usb2.h>
 
-// #define DEBUG_FDT
+#define DEBUG_FDT
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -1263,6 +1263,8 @@ static int fdt_fixup_modules(void *blob)
 
 static int get_status_pin(uint8_t *status)
 {
+	printf("get_status_pin starting\n");
+
 	int val;
 #define PA	((32*1)+(0*8+6))
 #define PB	((32*1)+(1*8+1))
