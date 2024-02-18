@@ -331,6 +331,9 @@ void setup_download_mode(void)
 
 	boot_devtype_init();
 
+	printf("setup_download_mode checking if download %skey pressed...\n",
+	       is_hotkey(HK_ROCKUSB_DNL) ? "is HOT YES" : "is NOT HOT");
+	
 	if (rockchip_dnl_key_pressed() || is_hotkey(HK_ROCKUSB_DNL)) {
 		printf("download %skey pressed... ",
 		       is_hotkey(HK_ROCKUSB_DNL) ? "hot" : "");
@@ -341,10 +344,10 @@ void setup_download_mode(void)
 		}
 
 #ifdef CONFIG_CMD_ROCKUSB
-		vbus = rockchip_u2phy_vbus_detect();
+		// vbus = rockchip_u2phy_vbus_detect(); // rpardini: don't do this, it fails with -19
 #endif
 		if (vbus > 0) {
-			printf("%sentering download mode...\n",
+			printf("%sentering download mode vbus > 0...\n",
 			       IS_ENABLED(CONFIG_CMD_ROCKUSB) ?
 			       "" : "no rockusb, ");
 
@@ -354,7 +357,7 @@ void setup_download_mode(void)
 			if ((fdt_node_offset_by_compatible(blob, -1, "radxa,rockpie")) >= 0) {
 				run_command("download", 0);
 			}
-			printf("entering recovery mode!\n");
+			printf("entering recovery mode vbus not > 0!\n");
 			env_set("reboot_mode", "recovery-key");
 		}
 	} else if (is_hotkey(HK_FASTBOOT)) {
