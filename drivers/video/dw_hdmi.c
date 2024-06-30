@@ -1025,6 +1025,23 @@ int dw_hdmi_enable(struct dw_hdmi *hdmi, const struct display_timing *edid)
 	return 0;
 }
 
+int dw_hdmi_disable(struct dw_hdmi *hdmi)
+{
+	uint clkdis;
+
+	/* disable pixel clock and tmds data path */
+	clkdis = 0x7f;
+	hdmi_write(hdmi, clkdis, HDMI_MC_CLKDIS);
+
+	/* disable phy */
+	hdmi_phy_sel_interface_control(hdmi, 0);
+	hdmi_phy_enable_tmds(hdmi, 0);
+	hdmi_phy_enable_power(hdmi, 0);
+
+	return 0;
+
+}
+
 static const struct dw_hdmi_phy_ops dw_hdmi_synopsys_phy_ops = {
 	.phy_set = dw_hdmi_phy_cfg,
 };
