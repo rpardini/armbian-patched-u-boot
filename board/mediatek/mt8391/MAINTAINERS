@@ -1,0 +1,6 @@
+Genio-720 (MT8391) Evk
+M:	Macpaul Lin <macpaul.lin@mediatek.com>
+S:	Maintained
+F:	board/mediatek/mt8391
+F:	include/configs/mt8391.h
+F:	configs/genio_720_evk_defconfig
