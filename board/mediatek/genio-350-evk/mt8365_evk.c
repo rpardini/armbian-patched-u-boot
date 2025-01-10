@@ -111,9 +111,6 @@ int board_init(void)
 		}
 	}
 
-	if (CONFIG_IS_ENABLED(USB_ETHER))
-		usb_ether_init();
-
 	if (IS_ENABLED(CONFIG_EFI_HAVE_CAPSULE_SUPPORT) &&
 	    IS_ENABLED(CONFIG_EFI_PARTITION))
 		mediatek_capsule_update_board_setup();
