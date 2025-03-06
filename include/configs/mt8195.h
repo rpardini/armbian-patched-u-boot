@@ -121,9 +121,10 @@
 #endif
 
 #define BOOT_TARGET_DEVICES(func) \
-	BOOT_TARGET_MMC(func) \
-	BOOT_TARGET_USB(func) \
-	BOOT_TARGET_SCSI(func)
+	BOOT_TARGET_SCSI(func) \
+	BOOT_TARGET_MMC(func)  \
+	BOOT_TARGET_USB(func)
+
 
 #if !defined(CONFIG_EXTRA_ENV_SETTINGS)
 #if !IS_ENABLED(CONFIG_SPI_FLASH)
