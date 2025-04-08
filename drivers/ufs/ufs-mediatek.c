@@ -48,6 +48,7 @@ static int ufs_mtk_bind(struct udevice *dev)
 static const struct udevice_id ufs_mtk_of_match[] = {
 	{
 		.compatible = "mediatek,mt8195-ufshci",
+		.compatible = "mediatek,mt8183-ufshci",
 	},
 	{},
 };
