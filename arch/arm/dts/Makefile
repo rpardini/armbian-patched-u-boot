@@ -1244,6 +1244,7 @@ dtb-$(CONFIG_ARCH_MEDIATEK) += \
 	genio-510-evk.dtb \
 	genio-700-evk.dtb \
 	genio-720-evk.dtb \
+	genio-720-evk-ufs.dtb \
 	genio-1200-evk.dtb \
 	genio-1200-evk-ufs.dtb \
 	genio-1200-evk-ufs-qspi.dtb
