@@ -86,15 +86,15 @@ static void mtk_wdt_set_timeout(struct udevice *dev, u64 timeout_ms)
 	 * We want the ceiling after dividing timeout_ms by 15.625 ms
 	 * We add 15624 prior to the divide to implement the ceiling
 	 * We prevent over-flow by clamping the timeout_ms value here
-	 *  as the maximum WDT_LENGTH counts is 1023 -> 15.984375 sec
+	 *  as the maximum WDT_LENGTH counts is 2047 -> 31.984375 sec
 	 * We also enforce a minimum of 1 count
 	 * Many watchdog peripherals have a self-imposed count of 1
 	 *  that is added to the register counts.
 	 *  The MediaTek docs lack details to know if this is the case here.
 	 *  So we enforce a minimum of 1 to guarantee operation.
 	 */
-	if (timeout_ms > 15984)
-		timeout_ms = 15984;
+	if (timeout_ms > 31984)
+		timeout_ms = 31984;
 
 	timeout_us = timeout_ms * 1000;
 	timeout_cc = (15624 + timeout_us) / 15625;
