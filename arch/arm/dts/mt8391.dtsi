@@ -161,8 +161,8 @@
 			compatible = "mediatek,mt8391-mmc",
 				     "mediatek,mt8183-mmc";
 			reg = <0 0x11230000 0 0x1000>,
-			      <0 0x11f50000 0 0x1000>;
-			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_LOW>;
+			      <0 0x11e70000 0 0x1000>;
+			interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmc_source_clk>,
 				 <&clk26m>,
 				 <&clk26m>;
