@@ -16,5 +16,6 @@ obj-$(CONFIG_TARGET_MT8195) += clk-mt8195.o clk-mt8195-apmixedsys.o \
 obj-$(CONFIG_TARGET_MT8188) += clk-mt8188.o
 obj-$(CONFIG_TARGET_MT8370) += clk-mt8188.o
 obj-$(CONFIG_TARGET_MT8365) += clk-mt8365.o
+obj-$(CONFIG_TARGET_MT8391) += clk-mt8391.o
 obj-$(CONFIG_TARGET_MT8516) += clk-mt8516.o
 obj-$(CONFIG_TARGET_MT8518) += clk-mt8518.o
