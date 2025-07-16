@@ -8,6 +8,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/clock/mt8391-clk.h>
 
 / {
 	compatible = "mediatek,mt8391";
@@ -146,6 +147,24 @@
 			};
 		};
 
+		topckgen_clk: topckgen@10000000 {
+			compatible = "mediatek,mt8391-topckgen";
+			reg = <0 0x10000000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		topckgen_cg: topckgen-cg@10000000 {
+			compatible = "mediatek,mt8391-topckgen_cg";
+			reg = <0 0x10000000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		apmixedsys_clk: apmixedsys-clk@1000c000 {
+			compatible = "mediatek,mt8391-apmixedsys";
+			reg = <0 0x1000c000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
 		uart0: serial@11001000 {
 			compatible = "mediatek,mt8391-uart",
 				     "mediatek,hsuart";
@@ -155,6 +174,14 @@
 			clocks = <&clk26m>, <&clk26m>;
 			clock-names = "baud", "bus";
 			status = "disabled";
+		};
+
+		pericfg_ao_clk: pericfg-ao-clk@11036000 {
+			compatible = "mediatek,mt8391-peri_ao";
+			reg = <0 0x11036000 0 0x1000>;
+			#clock-cells = <1>;
+			clocks = <&topckgen_clk>;
+			clock-output-names = "pericfg_ao_clk";
 		};
 
 		mmc0: mmc@11230000 {
@@ -181,6 +208,60 @@
 				 <&clk26m>;
 			clock-names = "source", "hclk", "source_cg";
 			status = "disabled";
+		};
+
+		imp_iic_wrap_ws_clk: imp-iic-wrap-ws-clk@11b21000 {
+			compatible = "mediatek,mt8391-iic_wrap";
+			reg = <0 0x11b21000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		imp_iic_wrap_e_clk: imp-iic-wrap-e-clk@11c22000 {
+			compatible = "mediatek,mt8391-iic_wrap";
+			reg = <0 0x11c22000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		imp_iic_wrap_s_clk: imp-iic-wrap-s-clk@11d74000 {
+			compatible = "mediatek,mt8391-iic_wrap";
+			reg = <0 0x11d74000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		imp_iic_wrap_en_clk: imp-iic-wrap-en-clk@11f32000 {
+			compatible = "mediatek,mt8391-iic_wrap";
+			reg = <0 0x11f32000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		vlpcfg_reg_bus_clk: vlpcfg-reg-bus-clk@1c00c000 {
+			compatible = "mediatek,mt8391-vlpcfg_reg_bus";
+			reg = <0 0x1c00c000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		mminfra_config_clk: mminfra-config-clk@1e800000 {
+			compatible = "mediatek,mt8391-mm_infra";
+			reg = <0 0x1e800000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		gce_d_clk: gce-d-clk@1e980000 {
+			compatible = "mediatek,mt8391-gce_d";
+			reg = <0 0x1e980000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		gce_m_clk: gce-m-clk@1e990000 {
+			compatible = "mediatek,mt8391-gce_m";
+			reg = <0 0x1e990000 0 0x1000>;
+			#clock-cells = <1>;
+		};
+
+		dispsys_config_clk: dispsys-config-clk@14000000 {
+			compatible = "mediatek,mt8391-dispsys";
+			reg = <0 0x14000000 0 0x1000>;
+			#clock-cells = <1>;
 		};
 	};
 };
