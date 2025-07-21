@@ -247,6 +247,60 @@
 			status = "disabled";
 		};
 
+		spi0: spi@11010800 {
+			compatible = "mediatek,ipm-spi";
+			reg = <0 0x11010800 0 0x100>;
+			interrupts = <GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pericfg_ao_clk CLK_PERAO_SPI0_B>;
+			clock-names = "spi-clk";
+			status = "disabled";
+		};
+
+		spi1: spi@11011800 {
+			compatible = "mediatek,ipm-spi";
+			reg = <0 0x11011800 0 0x100>;
+			interrupts = <GIC_SPI 460 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pericfg_ao_clk CLK_PERAO_SPI1_B>;
+			clock-names = "spi-clk";
+			status = "disabled";
+		};
+
+		spi2: spi@11012800 {
+			compatible = "mediatek,ipm-spi";
+			reg = <0 0x11012800 0 0x100>;
+			interrupts = <GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pericfg_ao_clk CLK_PERAO_SPI2_B>;
+			clock-names = "spi-clk";
+			status = "disabled";
+		};
+
+		spi3: spi@11013800 {
+			compatible = "mediatek,ipm-spi";
+			reg = <0 0x11013800 0 0x100>;
+			interrupts = <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pericfg_ao_clk CLK_PERAO_SPI3_B>;
+			clock-names = "spi-clk";
+			status = "disabled";
+		};
+
+		spi4: spi@11014800 {
+			compatible = "mediatek,ipm-spi";
+			reg = <0 0x11014800 0 0x100>;
+			interrupts = <GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pericfg_ao_clk CLK_PERAO_SPI4_B>;
+			clock-names = "spi-clk";
+			status = "disabled";
+		};
+
+		spi5: spi@11015800 {
+			compatible = "mediatek,ipm-spi";
+			reg = <0 0x11015800 0 0x100>;
+			interrupts = <GIC_SPI 464 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pericfg_ao_clk CLK_PERAO_SPI5_B>;
+			clock-names = "spi-clk";
+			status = "disabled";
+		};
+
 		imp_iic_wrap_ws_clk: imp-iic-wrap-ws-clk@11b21000 {
 			compatible = "mediatek,mt8391-iic_wrap";
 			reg = <0 0x11b21000 0 0x1000>;
