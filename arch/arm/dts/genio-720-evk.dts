@@ -94,6 +94,30 @@
 	status = "okay";
 };
 
+&spi0 {
+	status = "okay";
+	pinctrl-0 = <&spi0_pins>;
+	pinctrl-names = "default";
+	enhance_timing;
+	dma_ext;
+	ipm_design;
+	tick_dly = <0>;
+	sample_sel = <0>;
+	spi-max-frequency = <10000000>;
+};
+
+&spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_pins>;
+	pinctrl-names = "default";
+	enhance_timing;
+	dma_ext;
+	ipm_design;
+	tick_dly = <0>;
+	sample_sel = <0>;
+	spi-max-frequency = <10000000>;
+};
+
 &mmc0 {
 	bus-width = <8>;
 	max-frequency = <200000000>;
@@ -106,4 +130,26 @@
 	vqmmc-supply = <&reg_1p8v>;
 	non-removable;
 	status = "okay";
+};
+
+&pio {
+	spi0_pins: spi0-pins {
+		pins-spi-bus {
+			pinmux = <PINMUX_GPIO69__FUNC_SPIM0_CSB>,
+				 <PINMUX_GPIO70__FUNC_SPIM0_CLK>,
+				 <PINMUX_GPIO71__FUNC_SPIM0_MO>,
+				 <PINMUX_GPIO72__FUNC_SPIM0_MI>;
+			drive-strength = <MTK_DRIVE_6mA>;
+		};
+	};
+
+	spi1_pins: spi1-pins {
+		pins-spi-bus {
+			pinmux = <PINMUX_GPIO73__FUNC_SPIM1_CSB>,
+				 <PINMUX_GPIO74__FUNC_SPIM1_CLK>,
+				 <PINMUX_GPIO75__FUNC_SPIM1_MO>,
+				 <PINMUX_GPIO76__FUNC_SPIM1_MI>;
+			drive-strength = <MTK_DRIVE_12mA>;
+		};
+	};
 };
