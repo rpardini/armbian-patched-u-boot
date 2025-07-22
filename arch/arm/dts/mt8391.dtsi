@@ -165,6 +165,14 @@
 			#clock-cells = <1>;
 		};
 
+		pwrap: pwrap@1cc04000 {
+			compatible = "mediatek,mt8189-pwrap";
+			reg = <0 0x1cc04000 0 0x1000>;
+			clocks =  <&vlpcfg_reg_bus_clk CLK_VLPCFG_REG_PMIF_SPMI_M_SYS>,
+				<&vlpcfg_reg_bus_clk CLK_VLPCFG_REG_PMIF_SPMI_M_TMR>;
+			clock-names = "spi", "wrap";
+		};
+
 		uart0: serial@11001000 {
 			compatible = "mediatek,mt8391-uart",
 				     "mediatek,hsuart";
