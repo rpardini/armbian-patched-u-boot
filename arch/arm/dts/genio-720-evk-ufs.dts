@@ -8,6 +8,7 @@
 
 #include <config.h>
 #include "mt8391.dtsi"
+#include "mt6359.dtsi"
 
 / {
 	model = "MediaTek Genio-720 EVK";
