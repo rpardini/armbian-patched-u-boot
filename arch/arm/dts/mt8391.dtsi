@@ -246,8 +246,7 @@
 		ufshci: ufshci@112b0000 {
 			compatible = "mediatek,mt8391-ufshci",
 				     "mediatek,mt8183-ufshci";
-			reg = <0 0x112b0000 0 0x2300>,
-			      <0 0x11f50000 0 0x1000>;
+			reg = <0 0x112b0000 0 0x2300>;
 			interrupts = <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmc_source_clk>,
 				 <&clk26m>,
