@@ -1252,7 +1252,8 @@ dtb-$(CONFIG_ARCH_MEDIATEK) += \
 	genio-1200-radxa-nio-12l-d4.dtb \
 	genio-1200-radxa-nio-12l-d8.dtb \
 	genio-1200-radxa-nio-12l-d16.dtb \
-	grinn-genio-700-sbc.dtb
+	grinn-genio-700-sbc.dtb \
+	grinn-genio-510-sbc.dtb
 
 dtb-$(CONFIG_ARCH_NPCM7xx) += nuvoton-npcm750-evb.dtb
 dtb-$(CONFIG_XEN) += xenguest-arm64.dtb
