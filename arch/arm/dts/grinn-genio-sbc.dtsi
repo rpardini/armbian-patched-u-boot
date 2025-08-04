@@ -203,10 +203,6 @@
 	status = "okay";
 };
 
-&auxadc {
-	status = "okay";
-};
-
 &u3phy0 {
 	status = "okay";
 };
