@@ -7,9 +7,13 @@
 #include <common.h>
 #include <dm.h>
 #include <efi_loader.h>
+#include <env.h>
+#include <env_internal.h>
+#include <fdt_support.h>
 #include <iot_ab.h>
 #include <net.h>
 #include <asm/io.h>
+#include <log.h>
 #include <linux/kernel.h>
 #include <linux/arm-smccc.h>
 
@@ -100,6 +104,77 @@ void set_dfu_alt_info(char *interface, char *devstr)
 }
 #endif
 #endif /* CONFIG_EFI_HAVE_CAPSULE_SUPPORT && CONFIG_EFI_PARTITION */
+
+static const char *board_full_name;
+
+#if (IS_ENABLED(CONFIG_BOARD_LATE_INIT))
+int board_late_init(void)
+{
+	/* Construct full board name from SoC part name and boot method,
+	 * and set to env variables "hostname" and "bootargs".
+	 */
+	u32 part = 0;
+	const char *board_name = NULL;
+	const char *boot_suffix = NULL;
+	char hostname_buf[64] = {0};
+	char cmdline_buf[64] = {0};
+	enum env_location loc = ENVL_MMC;
+
+	part = mediatek_sip_part_name();
+	switch (part) {
+	case 0x8371:
+		board_name = "genio-520-evk";
+		board_full_name = "MediaTek Genio 520 EVK";
+		break;
+	case 0x8391:
+	default:
+		board_name = "genio-720-evk";
+		board_full_name = "MediaTek Genio 720 EVK";
+		break;
+	}
+
+	loc = env_get_location(ENVOP_LOAD, 0);
+	log_info("u-boot env location detected: %d\n", loc);
+	switch (loc) {
+	case ENVL_SCSI:
+		boot_suffix = "-ufs";
+		break;
+	case ENVL_SPI_FLASH:
+		boot_suffix = "-nor";
+		break;
+	case ENVL_MMC:
+		break;
+	default:
+		break;
+	}
+
+	if (board_name) {
+		if (boot_suffix)
+			snprintf(hostname_buf, sizeof(hostname_buf), "%s%s",
+				 board_name, boot_suffix);
+		else
+			snprintf(hostname_buf, sizeof(hostname_buf), "%s", board_name);
+		env_set("hostname", hostname_buf);
+		snprintf(cmdline_buf, sizeof(cmdline_buf), "systemd.hostname=%s", hostname_buf);
+		env_set("bootargs", cmdline_buf);
+	}
+
+	return 0;
+}
+#endif
+
+#if (IS_ENABLED(CONFIG_OF_BOARD_SETUP))
+int ft_board_setup(void *blob, struct bd_info *bd)
+{
+	if (board_full_name) {
+		log_info("%s board model:%s\n", __func__, board_full_name);
+		do_fixup_by_path_string(blob, "/", "model",
+					board_full_name);
+	}
+
+	return 0;
+}
+#endif
 
 int board_init(void)
 {
