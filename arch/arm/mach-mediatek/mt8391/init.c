@@ -76,7 +76,12 @@ void reset_cpu(ulong addr)
 
 int print_cpuinfo(void)
 {
-	printf("CPU:   MediaTek MT8391\n");
+	u32 part = mediatek_sip_part_name();
+
+	if (part)
+		printf("CPU:   MediaTek MT%.4x\n", part);
+	else
+		printf("CPU:   MediaTek MT8391\n");
 	return 0;
 }
 
