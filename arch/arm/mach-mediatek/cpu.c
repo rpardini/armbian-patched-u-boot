@@ -28,12 +28,12 @@ void enable_caches(void)
 	dcache_enable();
 }
 
-#ifdef MTK_SIP_PARTNAME_ID
+#ifdef MTK_SIP_PLAT_BINFO
 /**
  * mediatek_sip_part_name - get the part name
  *
  * Retrieve the part name of platform description.
- * This only applicable to SoCs that support SIP partname
+ * This only applicable to SoCs that support SIP plat binfo
  * SMC call.
  *
  * Return:
@@ -45,7 +45,7 @@ u32 mediatek_sip_part_name(void)
 	struct arm_smccc_res res __maybe_unused;
 	u32 ret = 0;
 
-	arm_smccc_smc(MTK_SIP_PARTNAME_ID, 0, 0, 0, 0, 0, 0, 0, &res);
+	arm_smccc_smc(MTK_SIP_PLAT_BINFO, 0, 0, 0, 0, 0, 0, 0, &res);
 	ret = res.a1;
 
 	if (res.a0)
@@ -53,8 +53,37 @@ u32 mediatek_sip_part_name(void)
 	else
 		return ret;
 }
+
+/**
+ * mediatek_sip_segm_name - get the segment name
+ *
+ * Retrieve the segment name of platform description.
+ * This only applicable to SoCs that support SIP plat binfo
+ * SMC call.
+ *
+ * Return:
+ * * > 0 - the segment name invoked
+ * * 0   - error or no segment name invoked
+ */
+u32 mediatek_sip_segm_name(void)
+{
+	struct arm_smccc_res res __maybe_unused;
+	u32 ret = 0;
+
+	arm_smccc_smc(MTK_SIP_PLAT_BINFO, 1, 0, 0, 0, 0, 0, 0, &res);
+	ret = res.a1;
+	if (res.a0)
+		return 0;
+	else
+		return ret;
+}
 #else
 u32 mediatek_sip_part_name(void)
+{
+	return 0;
+}
+
+u32 mediatek_sip_segm_name(void)
 {
 	return 0;
 }
