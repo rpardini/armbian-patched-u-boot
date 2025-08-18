@@ -84,6 +84,24 @@
 		regulator-boot-on;
 		regulator-always-on;
 	};
+
+	usb_p1_vbus: regulator-usb-p1 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_p1_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio 84 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	usb_p3_vbus: regulator-usb-p3 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_p3_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio 86 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 };
 
 &pio {
@@ -155,6 +173,12 @@
 			pinmux = <PINMUX_GPIO68__FUNC_SDA8>,
 					<PINMUX_GPIO67__FUNC_SCL8>;
 			bias-pull-up;
+		};
+	};
+
+	usb0_default_pins: usb0-default-pins {
+		pins-vbus-valid {
+			pinmux = <PINMUX_GPIO83__FUNC_VBUSVALID>;
 		};
 	};
 };
@@ -243,6 +267,29 @@
 	tick_dly = <0>;
 	sample_sel = <0>;
 	spi-max-frequency = <10000000>;
+};
+
+&usb {
+	status = "okay";
+};
+
+&ssusb {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb0_default_pins>;
+	maximum-speed = "high-speed";
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
+&xhci1 {
+	vbus-supply = <&usb_p1_vbus>;
+	status = "okay";
+};
+
+&xhci3 {
+	mediatek,force-vbus;
+	vbus-supply = <&usb_p3_vbus>;
+	status = "okay";
 };
 
 &mmc0 {
