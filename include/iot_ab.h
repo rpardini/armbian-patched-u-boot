@@ -12,7 +12,12 @@
 #include <u-boot/crc.h>
 
 #define BOOT_SLOT_NAME(name)	('a' + (name))
+
+#if IS_ENABLED(CONFIG_CMD_UBIFS)
+#define BOOT_DTS_NUM(num)	('4' + (num))
+#else
 #define BOOT_DTS_NUM(num)	('3' + (num))
+#endif
 
 #define BOOTCTRL_MAGIC		0x544F494D
 #define BOOTCTRL_VERSION	1
