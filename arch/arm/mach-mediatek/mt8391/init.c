@@ -74,11 +74,43 @@ void reset_cpu(ulong addr)
 }
 #endif
 
+const char *query_mediatek_soc_part_name_string(void)
+{
+	u32 seg = mediatek_sip_segm_name();
+	const char *seg_name = NULL;
+
+	switch (seg) {
+	case 0x80:
+		seg_name = "MT8391AV/AZA";
+		break;
+	case 0x88:
+		seg_name = "MT8391IV/AZA";
+		break;
+	case 0x81:
+		seg_name = "MT8371AV/AZA";
+		break;
+	case 0x89:
+		seg_name = "MT8371IV/AZA";
+		break;
+	case 0x82:
+		seg_name = "MT8371LV/AZA";
+		break;
+	default:
+		seg_name = NULL;
+		break;
+	}
+
+	return seg_name;
+}
+
 int print_cpuinfo(void)
 {
 	u32 part = mediatek_sip_part_name();
+	const char *seg_name = query_mediatek_soc_part_name_string();
 
-	if (part)
+	if (seg_name)
+		printf("CPU:   MediaTek %s\n", seg_name);
+	else if (part)
 		printf("CPU:   MediaTek MT%.4x\n", part);
 	else
 		printf("CPU:   MediaTek MT8391\n");
