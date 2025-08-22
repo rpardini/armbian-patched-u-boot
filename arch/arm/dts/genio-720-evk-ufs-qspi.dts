@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-2.0 OR MIT
+/*
+ * Copyright (C) 2025 MediaTek Inc.
+ * Author: Macpaul Lin <macpaul.lin@mediatek.com>
+ */
+
+/dts-v1/;
+
+#include <config.h>
+#include "mt8391.dtsi"
+#include "mt6359.dtsi"
+
+/ {
+	model = "MediaTek Genio-720 EVK with UFS and QSPI NOR Flash storage";
+	compatible = "mediatek,genio-720-evk-ufs-qspi", "mediatek,mt8391";
+
+	smbios {
+		compatible = "u-boot,sysinfo-smbios";
+		smbios {
+				system {
+						manufacturer = "MediaTek";
+						product = "Genio 720/520 EVK P2V3 (SPI NOR Boot to UFS)";
+						version = "P1V2";
+						sku = "mtk-g720-g520evkufsqspi-p2v3";
+						family = "MediaTek Genio";
+				};
+				baseboard {
+						manufacturer = "MediaTek";
+						product = "Genio 720/520 EVK P2V3 (SPI NOR)";
+				};
+				chassis {
+						manufacturer = "MediaTek";
+				};
+		};
+	};
+
+	memory@40000000 {
+		/* 8GB */
+		device_type = "memory";
+		reg = <0 0x40000000 2 0x00000000>;
+	};
+
+	firmware: firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+
+		psci: psci {
+			compatible = "arm,psci-1.0";
+			method = "smc";
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* 2 MiB reserved for ARM Trusted Firmware (BL31) */
+		bl31_secmon_reserved: secmon@54600000 {
+			no-map;
+			reg = <0 0x54600000 0x0 0x200000>;
+		};
+
+		/* 12 MiB reserved for OP-TEE (BL32)
+		 * +-----------------------+ 0x43e0_0000
+		 * |      SHMEM 2MiB       |
+		 * +-----------------------+ 0x43c0_0000
+		 * |        | TA_RAM  8MiB |
+		 * + TZDRAM +--------------+ 0x4340_0000
+		 * |        | TEE_RAM 2MiB |
+		 * +-----------------------+ 0x4320_0000
+		 */
+		optee_reserved: optee@43200000 {
+			no-map;
+			reg = <0 0x43200000 0 0x00c00000>;
+		};
+
+		dsi_reserved: dsi@60000000 {
+			reg = <0 0x60000000 0 0x02000000>;
+			no-map;
+		};
+	};
+
+	chosen {
+		stdout-path = &uart0;
+	};
+
+	reg_1p8v: regulator-1p8v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-1.8V";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	reg_3p3v: regulator-3p3v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+};
+
+&watchdog {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&ufshci {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	pinctrl-0 = <&spi0_pins>;
+	pinctrl-names = "default";
+	enhance_timing;
+	dma_ext;
+	ipm_design;
+	tick_dly = <0>;
+	sample_sel = <0>;
+	spi-max-frequency = <10000000>;
+};
+
+&spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_pins>;
+	pinctrl-names = "default";
+	enhance_timing;
+	dma_ext;
+	ipm_design;
+	tick_dly = <0>;
+	sample_sel = <0>;
+	spi-max-frequency = <10000000>;
+};
+
+&pio {
+	spi0_pins: spi0-pins {
+		pins-spi-bus {
+			pinmux = <PINMUX_GPIO69__FUNC_SPIM0_CSB>,
+				 <PINMUX_GPIO70__FUNC_SPIM0_CLK>,
+				 <PINMUX_GPIO71__FUNC_SPIM0_MO>,
+				 <PINMUX_GPIO72__FUNC_SPIM0_MI>;
+			drive-strength = <MTK_DRIVE_6mA>;
+		};
+	};
+
+	spi1_pins: spi1-pins {
+		pins-spi-bus {
+			pinmux = <PINMUX_GPIO73__FUNC_SPIM1_CSB>,
+				 <PINMUX_GPIO74__FUNC_SPIM1_CLK>,
+				 <PINMUX_GPIO75__FUNC_SPIM1_MO>,
+				 <PINMUX_GPIO76__FUNC_SPIM1_MI>;
+			drive-strength = <MTK_DRIVE_12mA>;
+		};
+	};
+};
