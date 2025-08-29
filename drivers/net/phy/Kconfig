@@ -225,6 +225,19 @@ config PHY_NXP_TJA11XX
 	help
 	  Currently supports the NXP TJA1100 and TJA1101 PHY.
 
+menuconfig PHY_AIROHA
+	bool "Airoha Ethernet PHYs support"
+	help
+		Menu for AIROHA PHY family.
+		Enable support for AIROHA PHYs.
+
+config PHY_AIROHA_AN8801
+	bool "Airoha Ethernet AN8801 support"
+	depends on PHY_AIROHA
+	help
+	  AIROHA AN8801 1G PHY supported.
+	  When enabled, please configure PHY node in the dts file.
+
 config PHY_REALTEK
 	bool "Realtek Ethernet PHYs support"
 

@@ -499,6 +499,9 @@ int phy_init(void)
 #ifdef CONFIG_PHY_ATHEROS
 	phy_atheros_init();
 #endif
+#ifdef CONFIG_PHY_AIROHA_AN8801
+	phy_air_an8801_init();
+#endif
 #ifdef CONFIG_PHY_BROADCOM
 	phy_broadcom_init();
 #endif
