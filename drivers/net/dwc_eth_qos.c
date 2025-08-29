@@ -486,10 +486,11 @@ static int eqos_fix_mac_speed_mtk(struct udevice *dev)
 	case PHY_INTERFACE_MODE_RGMII_ID:
 		if (eqos->phy->speed == SPEED_1000)
 			regmap_update_bits(mtk_pdata->peri_regmap,
-					   EQOS_MTK_PERI_ETH_CTRL0,
+					   mtk_pdata->peri_eth_ctrl0,
 					   EQOS_MTK_RGMII_TXC_PHASE_CTRL |
 					   EQOS_MTK_DLY_GTXC_ENABLE |
 					   EQOS_MTK_DLY_GTXC_INV |
+					   EQOS_MTK_DLY_GTXC_STAGE_FINE |
 					   EQOS_MTK_DLY_GTXC_STAGES,
 					   EQOS_MTK_RGMII_TXC_PHASE_CTRL);
 		else
@@ -1668,6 +1669,43 @@ err_clk_init:
 	return ret;
 }
 
+static int mt8189_mtk_clk_init(struct udevice *dev)
+{
+	struct eqos_priv *eqos = dev_get_priv(dev);
+	int ret = 0;
+
+#ifdef CONFIG_CLK
+	ret = clk_get_by_name(dev, "mac_main", &eqos->clk_tx);
+	if (ret) {
+		pr_err("clk_get_by_name(mac_main) failed: %d", ret);
+		goto err_free_clk_rmii_internal;
+	}
+
+	ret = clk_get_by_name(dev, "ptp_ref", &eqos->clk_ptp_ref);
+	if (ret) {
+		pr_err("clk_get_by_name(ptp_ref) failed: %d", ret);
+		goto err_free_clk_apb;
+	}
+
+	return ret;
+
+err_free_clk_apb:
+	clk_free(&eqos->clk_slave_bus);
+err_free_clk_mac_cg:
+	clk_free(&eqos->clk_ck);
+err_free_clk_mac_main:
+	clk_free(&eqos->clk_tx);
+err_free_clk_rmii_internal:
+	clk_free(&eqos->clk_rx);
+err_free_clk_axi:
+	clk_free(&eqos->clk_master_bus);
+err_clk_init:
+	pr_err("%s: dev=%p clock init fail\n", __func__, dev);
+#endif
+
+	return ret;
+}
+
 static int mtk_set_interface(struct udevice *dev)
 {
 	struct eth_pdata *pdata = dev_get_plat(dev);
@@ -1698,8 +1736,10 @@ static int mtk_set_interface(struct udevice *dev)
 
 	/* only support external PHY */
 	intf_val |= EQOS_MTK_EXT_PHY_MODE;
+	if (mtk_pdata->out_op)
+		intf_val |= EQOS_MTK_TXC_OUT_OP;
 
-	regmap_write(mtk_pdata->peri_regmap, EQOS_MTK_PERI_ETH_CTRL0, intf_val);
+	regmap_write(mtk_pdata->peri_regmap, mtk_pdata->peri_eth_ctrl0, intf_val);
 
 	return 0;
 }
@@ -1731,7 +1771,6 @@ static int mtk_set_delay(struct udevice *dev)
 	u32 gtxc_delay_val = 0, delay_val = 0, rmii_delay_val = 0;
 
 	mtk_pdata->eqos_mtk_delay_ps2stage(dev);
-
 	switch (mtk_pdata->interface) {
 	case PHY_INTERFACE_MODE_MII:
 		delay_val |= FIELD_PREP(EQOS_MTK_DLY_TXC_ENABLE, !!mtk_pdata->tx_delay);
@@ -1801,6 +1840,7 @@ static int mtk_set_delay(struct udevice *dev)
 		gtxc_delay_val |= FIELD_PREP(EQOS_MTK_DLY_GTXC_ENABLE, !!mtk_pdata->tx_delay);
 		gtxc_delay_val |= FIELD_PREP(EQOS_MTK_DLY_GTXC_STAGES, mtk_pdata->tx_delay);
 		gtxc_delay_val |= FIELD_PREP(EQOS_MTK_DLY_GTXC_INV, mtk_pdata->tx_inv);
+		gtxc_delay_val |= EQOS_MTK_DLY_GTXC_STAGE_FINE;
 
 		delay_val |= FIELD_PREP(EQOS_MTK_DLY_RXC_ENABLE, !!mtk_pdata->rx_delay);
 		delay_val |= FIELD_PREP(EQOS_MTK_DLY_RXC_STAGES, mtk_pdata->rx_delay);
@@ -1813,14 +1853,15 @@ static int mtk_set_delay(struct udevice *dev)
 	}
 
 	regmap_update_bits(mtk_pdata->peri_regmap,
-			   EQOS_MTK_PERI_ETH_CTRL0,
+			   mtk_pdata->peri_eth_ctrl0,
 			   EQOS_MTK_RGMII_TXC_PHASE_CTRL |
-			   EQOS_MTK_DLY_GTXC_INV |
 			   EQOS_MTK_DLY_GTXC_ENABLE |
+			   EQOS_MTK_DLY_GTXC_INV |
+			   EQOS_MTK_DLY_GTXC_STAGE_FINE |
 			   EQOS_MTK_DLY_GTXC_STAGES,
 			   gtxc_delay_val);
-	regmap_write(mtk_pdata->peri_regmap, EQOS_MTK_PERI_ETH_CTRL1, delay_val);
-	regmap_write(mtk_pdata->peri_regmap, EQOS_MTK_PERI_ETH_CTRL2, rmii_delay_val);
+	regmap_write(mtk_pdata->peri_regmap,  mtk_pdata->peri_eth_ctrl1, delay_val);
+	regmap_write(mtk_pdata->peri_regmap,  mtk_pdata->peri_eth_ctrl2, rmii_delay_val);
 
 	mtk_pdata->eqos_mtk_delay_stage2ps(dev);
 
@@ -1835,7 +1876,28 @@ static struct eqos_mtk_priv mtk_priv_data = {
 	.eqos_mtk_delay_ps2stage = mtk_delay_ps2stage,
 	.eqos_mtk_set_delay = mtk_set_delay,
 	.rx_delay_max = 9800,
-	.tx_delay_max = 9800
+	.tx_delay_max = 9800,
+	.out_op = false,
+	.peri_eth_ctrl0 = EQOS_MTK_PERI_ETH_CTRL0,
+	.peri_eth_ctrl1 = EQOS_MTK_PERI_ETH_CTRL1,
+	.peri_eth_ctrl2 = EQOS_MTK_PERI_ETH_CTRL2,
+	.need_stage_fine = false
+};
+
+static struct eqos_mtk_priv mtk_priv_data_mt8189 = {
+	.eqos_mtk_config_dt = mtk_config_dt,
+	.eqos_mtk_clk_init = mt8189_mtk_clk_init,
+	.eqos_mtk_set_phy_interface = mtk_set_interface,
+	.eqos_mtk_delay_stage2ps = mtk_delay_stage2ps,
+	.eqos_mtk_delay_ps2stage = mtk_delay_ps2stage,
+	.eqos_mtk_set_delay = mtk_set_delay,
+	.rx_delay_max = 9800,
+	.tx_delay_max = 9800,
+	.out_op = true,
+	.peri_eth_ctrl0 = MT8189_PERI_ETH_CTRL0,
+	.peri_eth_ctrl1 = MT8189_PERI_ETH_CTRL1,
+	.peri_eth_ctrl2 = MT8189_PERI_ETH_CTRL2,
+	.need_stage_fine = true
 };
 
 static int eqos_probe_resources_mtk(struct udevice *dev)
@@ -1858,6 +1920,46 @@ static int eqos_probe_resources_mtk(struct udevice *dev)
 	ret = mtk_pdata->eqos_mtk_clk_init(dev);
 	if (ret) {
 		pr_err("%s: dev=%p mtk config dt fail\n", __func__, dev);
+		return ret;
+	}
+
+	ret = mtk_pdata->eqos_mtk_set_phy_interface(dev);
+	if (ret) {
+		pr_err("%s: dev=%p mtk set interface fail\n", __func__, dev);
+		return ret;
+	}
+
+	ret = mtk_pdata->eqos_mtk_set_delay(dev);
+	if (ret) {
+		pr_err("%s: dev=%p mtk set delay fail\n", __func__, dev);
+		return ret;
+	}
+
+	debug("%s(dev=%p): OK\n", __func__, dev);
+
+	return 0;
+}
+
+static int eqos_probe_resources_mtk_mt8189(struct udevice *dev)
+{
+	struct eth_pdata *pdata = dev_get_plat(dev);
+	struct eqos_mtk_priv *mtk_pdata;
+	int ret;
+
+	pdata->priv_pdata = (void *)(&mtk_priv_data_mt8189);
+	mtk_pdata = &mtk_priv_data_mt8189;
+
+	debug("%s(dev=%p):\n", __func__, dev);
+
+	ret = mtk_pdata->eqos_mtk_config_dt(dev);
+	if (ret) {
+		pr_err("%s: dev=%p mtk config dt fail\n", __func__, dev);
+		return ret;
+	}
+
+	ret = mtk_pdata->eqos_mtk_clk_init(dev);
+	if (ret) {
+		pr_err("%s: dev=%p mtk clk init fail\n", __func__, dev);
 		return ret;
 	}
 
@@ -2127,6 +2229,25 @@ static const struct eqos_config __maybe_unused eqos_stm32_config = {
 	.ops = &eqos_stm32_ops
 };
 
+static struct eqos_ops eqos_mtk_mt8189_ops = {
+	.eqos_inval_desc = eqos_inval_desc_generic,
+	.eqos_flush_desc = eqos_flush_desc_generic,
+	.eqos_inval_buffer = eqos_inval_buffer_generic,
+	.eqos_flush_buffer = eqos_flush_buffer_generic,
+	.eqos_probe_resources = eqos_probe_resources_mtk_mt8189,
+	.eqos_remove_resources = eqos_remove_resources_mtk,
+	.eqos_stop_resets = eqos_null_ops,
+	.eqos_start_resets = eqos_null_ops,
+	.eqos_stop_clks = eqos_stop_clks_mtk,
+	.eqos_start_clks = eqos_start_clks_mtk,
+	.eqos_calibrate_pads = eqos_null_ops,
+	.eqos_disable_calibration = eqos_null_ops,
+	.eqos_set_tx_clk_speed = eqos_null_ops,
+	.eqos_get_enetaddr = eqos_null_ops,
+	.eqos_get_tick_clk_rate = eqos_null_ops,
+	.eqos_fix_mac_speed = eqos_fix_mac_speed_mtk
+};
+
 static struct eqos_ops eqos_mtk_ops = {
 	.eqos_inval_desc = eqos_inval_desc_generic,
 	.eqos_flush_desc = eqos_flush_desc_generic,
@@ -2157,6 +2278,17 @@ struct eqos_config __maybe_unused eqos_mtk_config = {
 	.ops = &eqos_mtk_ops
 };
 
+struct eqos_config __maybe_unused eqos_mt8189_mtk_config = {
+	.reg_access_always_ok = false,
+	.mdio_wait = 10000,
+	.swr_wait = 10,
+	.config_mac = EQOS_MAC_RXQ_CTRL0_RXQ0EN_ENABLED_DCB,
+	.config_mac_mdio = EQOS_MAC_MDIO_ADDRESS_CR_60_100,
+	.axi_bus_width = EQOS_AXI_WIDTH_64,
+	.interface = eqos_get_interface_mtk,
+	.ops = &eqos_mtk_mt8189_ops,
+};
+
 static const struct udevice_id eqos_ids[] = {
 #if IS_ENABLED(CONFIG_DWC_ETH_QOS_TEGRA186)
 	{
@@ -2180,6 +2312,10 @@ static const struct udevice_id eqos_ids[] = {
 	{
 		.compatible = "mediatek,mt8195-gmac",
 		.data = (ulong)&eqos_mtk_config
+	},
+	{
+		.compatible = "mediatek,mt8189-gmac",
+		.data = (ulong)&eqos_mt8189_mtk_config
 	},
 #endif
 	{ }

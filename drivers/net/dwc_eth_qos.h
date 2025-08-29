@@ -195,7 +195,9 @@ struct eqos_tegra186_regs {
 #define EQOS_MTK_PHY_INTF_RMII		4
 #define EQOS_MTK_RGMII_TXC_PHASE_CTRL	BIT(22)
 #define EQOS_MTK_EXT_PHY_MODE		BIT(21)
+#define EQOS_MTK_TXC_OUT_OP		    BIT(20)
 #define EQOS_MTK_DLY_GTXC_INV		BIT(12)
+#define EQOS_MTK_DLY_GTXC_STAGE_FINE	GENMASK(11, 6)
 #define EQOS_MTK_DLY_GTXC_ENABLE		BIT(5)
 #define EQOS_MTK_DLY_GTXC_STAGES		GENMASK(4, 0)
 
@@ -215,6 +217,11 @@ struct eqos_tegra186_regs {
 #define EQOS_MTK_DLY_RMII_TXC_ENABLE	BIT(5)
 #define EQOS_MTK_DLY_RMII_TXC_STAGES	GENMASK(4, 0)
 
+/* Peri Configuration register for mt8189 */
+#define MT8189_PERI_ETH_CTRL0		0x270
+#define MT8189_PERI_ETH_CTRL1		0x274
+#define MT8189_PERI_ETH_CTRL2		0x278
+
 /* These variables are mtk-specific */
 struct eqos_mtk_priv {
 	int (*eqos_mtk_config_dt)(struct udevice *dev);
@@ -231,6 +238,11 @@ struct eqos_mtk_priv {
 	u32 tx_delay_max;
 	u32 tx_delay;
 	u32 rx_delay;
+	u32 peri_eth_ctrl0;
+	u32 peri_eth_ctrl1;
+	u32 peri_eth_ctrl2;
+	bool need_stage_fine;
+	bool out_op;
 	bool tx_inv;
 	bool rx_inv;
 };
