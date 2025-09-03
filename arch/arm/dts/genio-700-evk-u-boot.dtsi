@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0 OR MIT
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ * Author: Chris-QJ Chen <chris-qj.chen@mediatek.com>
+ *         Pablo Sun <pablo.sun@mediatek.com>
+ */
+
+#include "smbios.dtsi"
+
+/ {
+	smbios {
+		smbios {
+			system {
+				product = "Genio 700 EVK P1V4 (eMMC Boot)";
+				version = "P1V4-A";
+				sku = "mtk-g700evk-p1v4";
+				family = "MediaTek Genio";
+			};
+			baseboard {
+				product = "Genio 700 EVK P1V4";
+			};
+		};
+	};
+};
