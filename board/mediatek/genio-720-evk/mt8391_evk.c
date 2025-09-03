@@ -192,6 +192,20 @@ int board_init(void)
 	if (CONFIG_IS_ENABLED(USB_ETHER))
 		usb_ether_init();
 
+	if (CONFIG_IS_ENABLED(MMC_MTK)) {
+		static const char * const mmc1_regulators[] = {
+			"vpa",
+			"vsim1",
+			NULL,
+		};
+
+		ret = regulator_list_autoset(mmc1_regulators, NULL, false);
+		if (ret) {
+			pr_err("%s: Unable to init all mmc1 regulators\n", __func__);
+			return ret;
+		}
+	}
+
 	if (IS_ENABLED(CONFIG_EFI_HAVE_CAPSULE_SUPPORT) &&
 	    IS_ENABLED(CONFIG_EFI_PARTITION))
 		mediatek_capsule_update_board_setup();
