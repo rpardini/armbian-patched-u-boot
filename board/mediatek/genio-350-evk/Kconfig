@@ -1,7 +1,7 @@
 if TARGET_MT8365
 
 config SYS_BOARD
-	default "mt8365"
+	default "genio-350-evk"
 
 config SYS_CONFIG_NAME
 	default "mt8365"
