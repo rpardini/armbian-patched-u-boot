@@ -1,6 +1,6 @@
 # SPDX-License-Identifier:	GPL-2.0
 
-obj-y += mt8195_demo.o
+obj-y += mt8195_evk.o
 
 ifeq ($(CONFIG_VIDEO_MEDIATEK),y)
 	obj-y += \

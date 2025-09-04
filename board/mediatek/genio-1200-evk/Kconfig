@@ -1,0 +1,9 @@
+if TARGET_MT8195
+
+config SYS_BOARD
+	default "genio-1200-evk"
+
+config SYS_CONFIG_NAME
+	default "mt8195"
+
+endif
