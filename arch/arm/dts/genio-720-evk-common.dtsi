@@ -1,0 +1,324 @@
+// SPDX-License-Identifier: GPL-2.0 OR MIT
+/*
+ * Copyright (C) 2025 MediaTek Inc.
+ * Author: Macpaul Lin <macpaul.lin@mediatek.com>
+ */
+
+#include <config.h>
+#include "mt8391.dtsi"
+#include "mt6359.dtsi"
+
+/ {
+	memory@40000000 {
+		/* 8GB */
+		device_type = "memory";
+		reg = <0 0x40000000 2 0x00000000>;
+	};
+
+	firmware: firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+
+		psci: psci {
+			compatible = "arm,psci-1.0";
+			method = "smc";
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* 2 MiB reserved for ARM Trusted Firmware (BL31) */
+		bl31_secmon_reserved: secmon@54600000 {
+			no-map;
+			reg = <0 0x54600000 0x0 0x200000>;
+		};
+
+		/* 12 MiB reserved for OP-TEE (BL32)
+		 * +-----------------------+ 0x43e0_0000
+		 * |      SHMEM 2MiB       |
+		 * +-----------------------+ 0x43c0_0000
+		 * |        | TA_RAM  8MiB |
+		 * + TZDRAM +--------------+ 0x4340_0000
+		 * |        | TEE_RAM 2MiB |
+		 * +-----------------------+ 0x4320_0000
+		 */
+		optee_reserved: optee@43200000 {
+			no-map;
+			reg = <0 0x43200000 0 0x00c00000>;
+		};
+
+		dsi_reserved: dsi@60000000 {
+			reg = <0 0x60000000 0 0x02000000>;
+			no-map;
+		};
+	};
+
+	chosen {
+		stdout-path = &uart0;
+	};
+
+	reg_1p8v: regulator-1p8v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-1.8V";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	reg_3p3v: regulator-3p3v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	usb_p1_vbus: regulator-usb-p1 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_p1_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio 84 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	usb_p3_vbus: regulator-usb-p3 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_p3_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&gpio 86 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&pio {
+	i2c0_pins:i2c0{
+		pins-bus{
+			pinmux = <PINMUX_GPIO52__FUNC_SDA0>,
+					<PINMUX_GPIO51__FUNC_SCL0>;
+			bias-pull-up;
+		};
+	};
+
+	i2c1_pins:i2c1{
+		pins-bus{
+			pinmux = <PINMUX_GPIO54__FUNC_SDA1>,
+					<PINMUX_GPIO53__FUNC_SCL1>;
+			bias-pull-up;
+		};
+	};
+
+	i2c2_pins:i2c2{
+		pins-bus{
+			pinmux = <PINMUX_GPIO56__FUNC_SDA2>,
+					<PINMUX_GPIO55__FUNC_SCL2>;
+			bias-pull-up;
+		};
+	};
+
+	i2c3_pins:i2c3{
+		pins-bus{
+			pinmux = <PINMUX_GPIO58__FUNC_SDA3>,
+					<PINMUX_GPIO57__FUNC_SCL3>;
+			bias-pull-up;
+		};
+	};
+
+	i2c4_pins:i2c4{
+		pins-bus{
+			pinmux = <PINMUX_GPIO60__FUNC_SDA4>,
+					<PINMUX_GPIO59__FUNC_SCL4>;
+			bias-pull-up;
+		};
+	};
+	i2c5_pins:i2c5{
+		pins-bus{
+			pinmux = <PINMUX_GPIO62__FUNC_SDA5>,
+					<PINMUX_GPIO61__FUNC_SCL5>;
+			bias-pull-up;
+		};
+	};
+
+	i2c6_pins:i2c6{
+		pins-bus{
+			pinmux = <PINMUX_GPIO64__FUNC_SDA6>,
+					<PINMUX_GPIO63__FUNC_SCL6>;
+			bias-pull-up;
+		};
+	};
+
+	i2c7_pins:i2c7{
+		pins-bus{
+			pinmux = <PINMUX_GPIO66__FUNC_SDA7>,
+					<PINMUX_GPIO65__FUNC_SCL7>;
+			bias-pull-up;
+		};
+	};
+
+	i2c8_pins:i2c8{
+		pins-bus{
+			pinmux = <PINMUX_GPIO68__FUNC_SDA8>,
+					<PINMUX_GPIO67__FUNC_SCL8>;
+			bias-pull-up;
+		};
+	};
+
+	usb0_default_pins: usb0-default-pins {
+		pins-vbus-valid {
+			pinmux = <PINMUX_GPIO83__FUNC_VBUSVALID>;
+		};
+	};
+};
+
+&i2c0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+	status = "okay";
+};
+
+&i2c1{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&i2c2{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+	status = "okay";
+};
+
+&i2c3{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pins>;
+	status = "okay";
+};
+
+&i2c4{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4_pins>;
+	status = "okay";
+};
+
+&i2c5{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c5_pins>;
+	status = "okay";
+};
+
+&i2c6{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c6_pins>;
+	status = "okay";
+};
+
+&i2c7{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c7_pins>;
+	status = "okay";
+};
+
+&i2c8{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c8_pins>;
+	status = "okay";
+};
+
+&watchdog {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	pinctrl-0 = <&spi0_pins>;
+	pinctrl-names = "default";
+	enhance_timing;
+	dma_ext;
+	ipm_design;
+	tick_dly = <0>;
+	sample_sel = <0>;
+	spi-max-frequency = <10000000>;
+};
+
+&spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_pins>;
+	pinctrl-names = "default";
+	enhance_timing;
+	dma_ext;
+	ipm_design;
+	tick_dly = <0>;
+	sample_sel = <0>;
+	spi-max-frequency = <10000000>;
+};
+
+&usb {
+	status = "okay";
+};
+
+&ssusb {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb0_default_pins>;
+	maximum-speed = "high-speed";
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
+&xhci1 {
+	vbus-supply = <&usb_p1_vbus>;
+	status = "okay";
+};
+
+&xhci3 {
+	mediatek,force-vbus;
+	vbus-supply = <&usb_p3_vbus>;
+	status = "okay";
+};
+
+&mmc0 {
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	cap-mmc-highspeed;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	hs400-ds-delay = <0x1481b>;
+	cap-mmc-hw-reset;
+	vmmc-supply = <&reg_3p3v>;
+	vqmmc-supply = <&reg_1p8v>;
+	non-removable;
+	status = "okay";
+};
+
+&pio {
+	spi0_pins: spi0-pins {
+		pins-spi-bus {
+			pinmux = <PINMUX_GPIO69__FUNC_SPIM0_CSB>,
+				 <PINMUX_GPIO70__FUNC_SPIM0_CLK>,
+				 <PINMUX_GPIO71__FUNC_SPIM0_MO>,
+				 <PINMUX_GPIO72__FUNC_SPIM0_MI>;
+			drive-strength = <MTK_DRIVE_6mA>;
+		};
+	};
+
+	spi1_pins: spi1-pins {
+		pins-spi-bus {
+			pinmux = <PINMUX_GPIO73__FUNC_SPIM1_CSB>,
+				 <PINMUX_GPIO74__FUNC_SPIM1_CLK>,
+				 <PINMUX_GPIO75__FUNC_SPIM1_MO>,
+				 <PINMUX_GPIO76__FUNC_SPIM1_MI>;
+			drive-strength = <MTK_DRIVE_12mA>;
+		};
+	};
+};
