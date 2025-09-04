@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0 OR MIT
+/*
+ * Copyright (C) 2024 MediaTek INC.
+ * Author: Macpaul Lin <macpaul.lin@mediatek.com>
+ */
+
+#include "smbios.dtsi"
+
+/ {
+	smbios {
+		smbios {
+			system {
+				product = "Genio 510 EVK P1V2 (SPI NOR Boot)";
+				version = "P1V2";
+				sku = "mtk-g510evkqspi-p1v2";
+				family = "MediaTek Genio";
+			};
+			baseboard {
+				product = "Genio 510 EVK P1V2 (SPI NOR Reworked)";
+			};
+		};
+	};
+};
