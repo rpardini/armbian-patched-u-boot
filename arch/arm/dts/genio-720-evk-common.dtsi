@@ -383,6 +383,31 @@
 	status = "okay";
 };
 
+&mmc1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_pins_default>;
+	bus-width = <4>;
+	max-frequency = <52000000>;
+	cap-sd-highspeed;
+	cd-gpios = <&pio 2 GPIO_ACTIVE_HIGH>;
+	vmmc-supply = <&mt6359_vpa_buck_reg>;
+	vqmmc-supply = <&mt6359_vsim1_ldo_reg>;
+	status = "okay";
+};
+
+&mt6359_vpa_buck_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+	regulator-always-on;
+};
+
+&mt6359_vsim1_ldo_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+	regulator-enable-ramp-delay = <480>;
+	regulator-always-on;
+};
+
 &pio {
 	spi0_pins: spi0-pins {
 		pins-spi-bus {
@@ -401,6 +426,28 @@
 				 <PINMUX_GPIO75__FUNC_SPIM1_MO>,
 				 <PINMUX_GPIO76__FUNC_SPIM1_MI>;
 			drive-strength = <MTK_DRIVE_12mA>;
+		};
+	};
+
+	mmc1_pins_default: mmc1default {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO168__FUNC_MSDC1_CMD>,
+				<PINMUX_GPIO170__FUNC_MSDC1_DAT0>,
+				<PINMUX_GPIO171__FUNC_MSDC1_DAT1>,
+				<PINMUX_GPIO172__FUNC_MSDC1_DAT2>,
+				<PINMUX_GPIO173__FUNC_MSDC1_DAT3>;
+			input-enable;
+			drive-strength = <MTK_DRIVE_6mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+		};
+		pins-clk {
+			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_CLK>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+		};
+		pins-insert {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			bias-pull-up;
 		};
 	};
 };
