@@ -367,6 +367,19 @@
 			status = "disabled";
 		};
 
+		mmc1: mmc@11240000 {
+			compatible = "mediatek,mt8391-mmc",
+				     "mediatek,mt8183-mmc";
+			reg = <0 0x11240000 0 0x1000>,
+			      <0 0x11d80000 0 0x1000>;
+			interrupts = <GIC_SPI 388 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&mmc_source_clk>,
+				 <&clk26m>,
+				 <&clk26m>;
+			clock-names = "source", "hclk", "source_cg";
+			status = "disabled";
+		};
+
 		xhci3: xhci3@11260000 {
 			compatible = "mediatek,mtk-xhci";
 			reg = <0 0x11260000 0 0x2e00>,
