@@ -1,0 +1,9 @@
+if TARGET_MT8391
+
+config SYS_BOARD
+	default "genio-720-evk"
+
+config SYS_CONFIG_NAME
+	default "mt8391"
+
+endif
