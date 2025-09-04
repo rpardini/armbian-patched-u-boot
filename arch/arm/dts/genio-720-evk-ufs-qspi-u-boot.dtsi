@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0 OR MIT
+/*
+ * Copyright (C) 2025 MediaTek Inc.
+ * Author: Macpaul Lin <macpaul.lin@mediatek.com>
+ */
+
+#include "smbios.dtsi"
+
+/ {
+	smbios {
+		smbios {
+			system {
+				product = "Genio 720/520 EVK P2V3 (SPI NOR Boot to UFS)";
+				version = "P2V3";
+				sku = "mtk-g720-g520evkufsqspi-p2v3";
+				family = "MediaTek Genio";
+			};
+			baseboard {
+				product = "Genio 720/520 EVK P2V3 (SPI NOR)";
+			};
+		};
+	};
+};
