@@ -55,7 +55,7 @@ CONFIG_CMD_BMP=y
 CONFIG_CMD_EFIDEBUG=y
 CONFIG_CMD_MTDPARTS=y
 CONFIG_MTDIDS_DEFAULT="nor0=nor0"
-CONFIG_MTDPARTS_DEFAULT="mtdparts=nor0:4m(nor_bl2),4m(nor_fip_a),4m(nor_fip_b),4m(nor_firmware_a),4m(nor_firmware_b),512k(nor_dramk),1m(nor_misc),4m(nor_bootassets),4m(nor_env)"
+CONFIG_MTDPARTS_DEFAULT="mtdparts=nor0:2m(nor_bl2),2m(nor_fip_a),2m(nor_fip_b),2m(nor_firmware_a),2m(nor_firmware_b),512k(nor_dramk),1m(nor_misc),2m(nor_bootassets),2m(nor_env)"
 CONFIG_CMD_UBI=y
 CONFIG_PARTITION_TYPE_GUID=y
 CONFIG_ENV_IS_IN_SPI_FLASH=y
