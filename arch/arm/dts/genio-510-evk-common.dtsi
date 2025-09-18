@@ -6,6 +6,7 @@
 
 #include <config.h>
 #include "mt8370.dtsi"
+#include "mt6359.dtsi"
 
 / {
 	memory@40000000 {
