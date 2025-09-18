@@ -218,6 +218,16 @@
 			#clock-cells = <1>;
 		};
 
+		pwrap: pwrap@10024000 {
+			compatible = "mediatek,mt8188-pwrap", "mediatek,mt8195-pwrap", "syscon";
+			reg = <0 0x10024000 0 0x1000>;
+			reg-names = "pwrap";
+			interrupts = <GIC_SPI 243 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg_ao CLK_INFRA_AO_PMIC_AP>,
+				 <&infracfg_ao CLK_INFRA_AO_PMIC_TMR>;
+			clock-names = "spi", "wrap";
+		};
+
 		pio: pinctrl@10005000 {
 			compatible = "mediatek,mt8188-pinctrl";
 			reg = <0 0x10005000 0 0x1000>,
