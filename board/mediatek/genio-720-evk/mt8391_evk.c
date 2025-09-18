@@ -26,7 +26,10 @@ struct efi_capsule_update_info update_info = {
 #if IS_ENABLED(CONFIG_MEDIATEK_IOT_AB_BOOT_SUPPORT)
 #if (IS_ENABLED(CONFIG_DFU_MTD))
 	.dfu_string = "mtd nor0=bl2.img part 1;"
-			"fip.bin part %d;firmware.vfat part %d;u-boot-env.bin part 9",
+			"fip.bin part %d;firmware.a.ubi part %d;u-boot-env.bin part 9",
+#elif (IS_ENABLED(CONFIG_UFS_MEDIATEK))
+	.dfu_string = "ufs 0=bl2.img raw 0x0 0x400 dev 0;"
+			"fip.bin part 2 %d;firmware.vfat part 2 %d;u-boot-env.bin raw 0x0 0x400 dev 1",
 #else
 	.dfu_string = "mmc 0=bl2.img raw 0x0 0x2000 mmcpart 1;"
 			"fip.bin part 0 %d;firmware.vfat part 0 %d;u-boot-env.bin raw 0x0 0x2000 mmcpart 2",
@@ -34,7 +37,10 @@ struct efi_capsule_update_info update_info = {
 #else
 #if (IS_ENABLED(CONFIG_DFU_MTD))
 	.dfu_string = "mtd nor0=bl2.img part 1;"
-			"fip.bin part 2;firmware.vfat part 4;u-boot-env.bin part 9",
+			"fip.bin part 2;firmware.a.ubi part 4;u-boot-env.bin part 9",
+#elif (IS_ENABLED(CONFIG_UFS_MEDIATEK))
+	.dfu_string = "ufs 0=bl2.img raw 0x0 0x400 dev 0;"
+			"fip.bin part 2 1;firmware.vfat part 2 3;u-boot-env.bin raw 0x0 0x400 dev 1",
 #else
 	.dfu_string = "mmc 0=bl2.img raw 0x0 0x2000 mmcpart 1;"
 			"fip.bin part 0 1;firmware.vfat part 0 3;u-boot-env.bin raw 0x0 0x2000 mmcpart 2",
@@ -55,6 +61,24 @@ enum mt8390_updatable_images {
 	MT8391_FIT_IMAGE,
 };
 
+static bool board_is_genio_720_evk(void)
+{
+	return CONFIG_IS_ENABLED(TARGET_MT8391) &&
+		of_machine_is_compatible("mediatek,genio-720-evk");
+}
+
+static bool board_is_genio_720_evk_ufs(void)
+{
+	return CONFIG_IS_ENABLED(TARGET_MT8391) &&
+		of_machine_is_compatible("mediatek,genio-720-evk-ufs");
+}
+
+static bool board_is_genio_720_evk_ufs_qspi(void)
+{
+	return CONFIG_IS_ENABLED(TARGET_MT8391) &&
+		of_machine_is_compatible("mediatek,genio-720-evk-ufs-qspi");
+}
+
 void mediatek_capsule_update_board_setup(void)
 {
 	fw_images[0].image_index = MT8391_FIT_IMAGE;
@@ -63,23 +87,61 @@ void mediatek_capsule_update_board_setup(void)
 	fw_images[3].image_index = MT8391_FW_IMAGE;
 	fw_images[4].image_index = MT8391_ENV_IMAGE;
 
-	efi_guid_t image_type_guid = GENIO_720_EVK_FIT_IMAGE_GUID;
-	efi_guid_t uboot_image_type_guid = GENIO_720_EVK_FIP_IMAGE_GUID;
-	efi_guid_t bl2_image_type_guid = GENIO_720_EVK_BL2_IMAGE_GUID;
-	efi_guid_t fw_image_type_guid = GENIO_720_EVK_FW_IMAGE_GUID;
-	efi_guid_t env_image_type_guid = GENIO_720_EVK_ENV_IMAGE_GUID;
+	if (board_is_genio_720_evk()) {
+		efi_guid_t image_type_guid = GENIO_720_EVK_FIT_IMAGE_GUID;
+		efi_guid_t uboot_image_type_guid = GENIO_720_EVK_FIP_IMAGE_GUID;
+		efi_guid_t bl2_image_type_guid = GENIO_720_EVK_BL2_IMAGE_GUID;
+		efi_guid_t fw_image_type_guid = GENIO_720_EVK_FW_IMAGE_GUID;
+		efi_guid_t env_image_type_guid = GENIO_720_EVK_ENV_IMAGE_GUID;
 
-	guidcpy(&fw_images[0].image_type_id, &image_type_guid);
-	guidcpy(&fw_images[1].image_type_id, &uboot_image_type_guid);
-	guidcpy(&fw_images[2].image_type_id, &bl2_image_type_guid);
-	guidcpy(&fw_images[3].image_type_id, &fw_image_type_guid);
-	guidcpy(&fw_images[4].image_type_id, &env_image_type_guid);
+		guidcpy(&fw_images[0].image_type_id, &image_type_guid);
+		guidcpy(&fw_images[1].image_type_id, &uboot_image_type_guid);
+		guidcpy(&fw_images[2].image_type_id, &bl2_image_type_guid);
+		guidcpy(&fw_images[3].image_type_id, &fw_image_type_guid);
+		guidcpy(&fw_images[4].image_type_id, &env_image_type_guid);
 
-	fw_images[0].fw_name = u"GENIO-720-EVK-FIT";
-	fw_images[1].fw_name = u"GENIO-720-EVK-FIP";
-	fw_images[2].fw_name = u"GENIO-720-EVK-BL2";
-	fw_images[3].fw_name = u"GENIO-720-EVK-FW";
-	fw_images[4].fw_name = u"GENIO-720-EVK-ENV";
+		fw_images[0].fw_name = u"GENIO-720-EVK-FIT";
+		fw_images[1].fw_name = u"GENIO-720-EVK-FIP";
+		fw_images[2].fw_name = u"GENIO-720-EVK-BL2";
+		fw_images[3].fw_name = u"GENIO-720-EVK-FW";
+		fw_images[4].fw_name = u"GENIO-720-EVK-ENV";
+	} else if (board_is_genio_720_evk_ufs()) {
+		efi_guid_t image_type_guid = GENIO_720_EVK_UFS_FIT_IMAGE_GUID;
+		efi_guid_t uboot_image_type_guid = GENIO_720_EVK_UFS_FIP_IMAGE_GUID;
+		efi_guid_t bl2_image_type_guid = GENIO_720_EVK_UFS_BL2_IMAGE_GUID;
+		efi_guid_t fw_image_type_guid = GENIO_720_EVK_UFS_FW_IMAGE_GUID;
+		efi_guid_t env_image_type_guid = GENIO_720_EVK_UFS_ENV_IMAGE_GUID;
+
+		guidcpy(&fw_images[0].image_type_id, &image_type_guid);
+		guidcpy(&fw_images[1].image_type_id, &uboot_image_type_guid);
+		guidcpy(&fw_images[2].image_type_id, &bl2_image_type_guid);
+		guidcpy(&fw_images[3].image_type_id, &fw_image_type_guid);
+		guidcpy(&fw_images[4].image_type_id, &env_image_type_guid);
+
+		fw_images[0].fw_name = u"GENIO-720-EVK-UFS-FIT";
+		fw_images[1].fw_name = u"GENIO-720-EVK-UFS-FIP";
+		fw_images[2].fw_name = u"GENIO-720-EVK-UFS-BL2";
+		fw_images[3].fw_name = u"GENIO-720-EVK-UFS-FW";
+		fw_images[4].fw_name = u"GENIO-720-EVK-UFS-ENV";
+	} else if (board_is_genio_720_evk_ufs_qspi()) {
+		efi_guid_t image_type_guid = GENIO_720_EVK_UFS_QSPI_FIT_IMAGE_GUID;
+		efi_guid_t uboot_image_type_guid = GENIO_720_EVK_UFS_QSPI_FIP_IMAGE_GUID;
+		efi_guid_t bl2_image_type_guid = GENIO_720_EVK_UFS_QSPI_BL2_IMAGE_GUID;
+		efi_guid_t fw_image_type_guid = GENIO_720_EVK_UFS_QSPI_FW_IMAGE_GUID;
+		efi_guid_t env_image_type_guid = GENIO_720_EVK_UFS_QSPI_ENV_IMAGE_GUID;
+
+		guidcpy(&fw_images[0].image_type_id, &image_type_guid);
+		guidcpy(&fw_images[1].image_type_id, &uboot_image_type_guid);
+		guidcpy(&fw_images[2].image_type_id, &bl2_image_type_guid);
+		guidcpy(&fw_images[3].image_type_id, &fw_image_type_guid);
+		guidcpy(&fw_images[4].image_type_id, &env_image_type_guid);
+
+		fw_images[0].fw_name = u"GENIO-720-EVK-UFS-QSPI-FIT";
+		fw_images[1].fw_name = u"GENIO-720-EVK-UFS-QSPI-FIP";
+		fw_images[2].fw_name = u"GENIO-720-EVK-UFS-QSPI-BL2";
+		fw_images[3].fw_name = u"GENIO-720-EVK-UFS-QSPI-FW";
+		fw_images[4].fw_name = u"GENIO-720-EVK-UFS-QSPI-ENV";
+	}
 }
 
 #if IS_ENABLED(CONFIG_MEDIATEK_IOT_AB_BOOT_SUPPORT)
