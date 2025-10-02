@@ -21,11 +21,19 @@ int dram_init(void)
 {
 	int ret;
 
-	ret = fdtdec_setup_memory_banksize();
-	if (ret)
-		return ret;
+	if (BOOT_ARGUMENT->magic_number == BOOT_ARGUMENT_MAGIC) {
+		gd->ram_base = CONFIG_SYS_SDRAM_BASE;
+		gd->ram_size = BOOT_ARGUMENT->dram_size;
+		debug("Boot argument DRAM size: %lluGB\n", gd->ram_size >> 30);
+	} else {
+		ret = fdtdec_setup_mem_size_base();
+		if (ret)
+			return ret;
+	}
 
-	fdtdec_setup_mem_size_base();
+	mem_map[0].size = gd->ram_size;
+	mem_map[0].phys = gd->ram_base;
+	mem_map[0].virt = gd->ram_base;
 
 	/*
 	 * Limit gd->ram_top not exceeding SZ_4G.
@@ -75,9 +83,6 @@ int print_cpuinfo(void)
 static struct mm_region mt8370_mem_map[] = {
 	{
 		/* DDR */
-		.virt = 0x40000000UL,
-		.phys = 0x40000000UL,
-		.size = 0x200000000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) | PTE_BLOCK_OUTER_SHARE,
 	}, {
 		.virt = 0x00000000UL,
