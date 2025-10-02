@@ -62,6 +62,15 @@ static bool board_is_genio_700_evk(void)
 		of_machine_is_compatible("mediatek,genio-700-evk");
 }
 
+int ft_board_setup(void *blob, struct bd_info *bd)
+{
+	/*
+	 * Overwrite the memory size in the devicetree that is
+	 * passed to the kernel with the actual size detected.
+	 */
+	return fdt_fixup_memory(blob, gd->ram_base, gd->ram_size);
+}
+
 static bool board_is_genio_700_evk_qspi(void)
 {
 	return CONFIG_IS_ENABLED(TARGET_MT8188) &&
