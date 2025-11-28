@@ -52,7 +52,7 @@
 #include <linux/delay.h>
 #include <linux/printk.h>
 
-#undef DEBUG_RTL8169
+#define DEBUG_RTL8169
 #undef DEBUG_RTL8169_TX
 #undef DEBUG_RTL8169_RX
 
