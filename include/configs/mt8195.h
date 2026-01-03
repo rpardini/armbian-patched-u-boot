@@ -162,4 +162,7 @@
 #define MTK_SIP_PLAT_BINFO		0xC2000529
 #endif
 
+/* DRAM */
+#define CONFIG_SYS_SDRAM_BASE		0x40000000 // I got this from the DeviceTree "reg = <0 0x40000000 4 0x00000000>;"
+
 #endif

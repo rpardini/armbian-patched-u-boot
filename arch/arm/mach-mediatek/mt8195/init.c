@@ -22,11 +22,20 @@ int dram_init(void)
 {
 	int ret;
 
-	ret = fdtdec_setup_memory_banksize();
-	if (ret)
-		return ret;
+	if (BOOT_ARGUMENT->magic_number == BOOT_ARGUMENT_MAGIC) {
+		gd->ram_base = CONFIG_SYS_SDRAM_BASE;
+		gd->ram_size = BOOT_ARGUMENT->dram_size;
+		debug("Boot argument DRAM size: %lluGB\n", gd->ram_size >> 30);
+	} else {
+		debug("Did NOT get magic number from BOOT_ARGUMENT, use FDT to get DRAM size\n");
+		ret = fdtdec_setup_mem_size_base();
+		if (ret)
+			return ret;
+	}
 
-	fdtdec_setup_mem_size_base();
+	mem_map[0].size = gd->ram_size;
+	mem_map[0].phys = gd->ram_base;
+	mem_map[0].virt = gd->ram_base;
 
 	/*
 	 * Limit gd->ram_top not exceeding SZ_4G.
