@@ -229,3 +229,12 @@ int board_init(void)
 
 	return 0;
 }
+
+int ft_board_setup(void *blob, struct bd_info *bd)
+{
+	/*
+	 * Overwrite the memory size in the devicetree that is
+	 * passed to the kernel with the actual size detected.
+	 */
+	return fdt_fixup_memory(blob, gd->ram_base, gd->ram_size);
+}
