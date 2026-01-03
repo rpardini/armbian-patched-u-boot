@@ -123,7 +123,9 @@
 #define BOOT_TARGET_DEVICES(func) \
 	BOOT_TARGET_SCSI(func) \
 	BOOT_TARGET_MMC(func)  \
-	BOOT_TARGET_USB(func)
+	BOOT_TARGET_USB(func) \
+	func(PXE, pxe, na) \
+	func(DHCP, dhcp, na)
 
 
 #if !defined(CONFIG_EXTRA_ENV_SETTINGS)
