@@ -88,6 +88,10 @@ static int ums_init(const char *devtype, const char *devnums_part_str)
 			partnum = 0;
 
 		/* f_mass_storage.c assumes SECTOR_SIZE sectors */
+		printf("UMS SECTOR SIZE: block_dev->blksz: %d -- block_dev->lba: %d -- SECTOR_SIZE: %d --\n",
+		       block_dev->blksz,
+		       block_dev->lba,
+		       SECTOR_SIZE);
 		if (block_dev->blksz != SECTOR_SIZE)
 			goto cleanup;
 
