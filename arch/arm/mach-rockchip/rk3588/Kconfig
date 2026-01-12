@@ -445,6 +445,7 @@ config SYS_CONFIG_NAME
 config ROCKCHIP_RK3588_STABLE_MAC
 	bool "Inject stable MAC addresses for gmac0/gmac1 into DT"
 	default y
+	imply OF_SYSTEM_SETUP
 	help
 	  Injects MAC addresses from environment (ethaddr/eth1addr) into gmac0/gmac1 DT nodes for all RK3588 boards. Disable to turn off automatic MAC injection.
 
