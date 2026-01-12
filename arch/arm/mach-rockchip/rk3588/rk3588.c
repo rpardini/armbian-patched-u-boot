@@ -263,6 +263,7 @@ int checkboard(void)
 }
 
 #if IS_ENABLED(CONFIG_ROCKCHIP_RK3588_STABLE_MAC)
+#warning "Stable MAC address injection for gmac0/gmac1 is enabled for all RK3588 boards. MAC addresses from ethaddr/eth1addr will be injected into the DT by default. Disable CONFIG_ROCKCHIP_RK3588_STABLE_MAC to turn off this feature."
 static void rk3588_fdt_fixup_mac(void *blob)
 {
 	const char *mac0 = env_get("ethaddr");
