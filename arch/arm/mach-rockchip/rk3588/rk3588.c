@@ -268,7 +268,7 @@ static void rk3588_fdt_fixup_mac(void *blob)
 {
 	const char *mac0 = env_get("ethaddr");
 	const char *mac1 = env_get("eth1addr");
-	int node, idx = 0, ret;
+	int node, idx = 0, ret, patched = 0;
 	const char *macs[2] = {mac0, mac1};
 
 	log_info("[rk3588] MAC fixup: ethaddr=%s, eth1addr=%s\n",
@@ -281,16 +281,26 @@ static void rk3588_fdt_fixup_mac(void *blob)
 			ret = fdt_setprop(blob, node, "mac-address", macs[idx], 6);
 			if (ret)
 				log_info("[rk3588] Failed to set mac-address for gmac%d: %s\n", idx, fdt_strerror(ret));
-			else
+			else {
 				log_info("[rk3588] Successfully set mac-address for gmac%d\n", idx);
+				patched++;
+			}
 		} else {
 			log_info("[rk3588] No MAC for gmac%d, skipping node at offset %d\n", idx, node);
 		}
 		node = fdt_node_offset_by_compatible(blob, node, "rockchip,rk3588-gmac");
 		idx++;
 	}
-	if (idx == 0)
-		log_info("[rk3588] No gmac nodes found for MAC patching\n");
+	log_info("[rk3588] Total gmac nodes patched: %d\n", patched);
+	if (patched == 0 && mac0) {
+		/* Last-resort: pass first MAC via /chosen */
+		log_info("[rk3588] No gmac nodes patched, injecting ethaddr into /chosen as last resort\n");
+		ret = fdt_setprop(blob, fdt_path_offset(blob, "/chosen"), "u-boot,ethaddr", mac0, 6);
+		if (ret)
+			log_info("[rk3588] Failed to set u-boot,ethaddr in /chosen: %s\n", fdt_strerror(ret));
+		else
+			log_info("[rk3588] Set u-boot,ethaddr in /chosen\n");
+	}
 }
 #endif
 
