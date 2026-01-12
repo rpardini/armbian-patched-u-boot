@@ -7,6 +7,9 @@
 #define LOG_CATEGORY LOGC_ARCH
 
 #include <dm.h>
+#include <env.h>
+#include <fdt_support.h>
+#include <linux/libfdt.h>
 #include <misc.h>
 #include <spl.h>
 #include <asm/armv8/mmu.h>
@@ -256,5 +259,60 @@ int checkboard(void)
 
 	printf("SoC:   RK%02x%02x%s\n", cpu_code[0], cpu_code[1], suffix);
 
+	return 0;
+}
+
+#if IS_ENABLED(CONFIG_ROCKCHIP_RK3588_STABLE_MAC) && !defined(CONFIG_SPL_BUILD)
+#warning "Stable MAC address injection for gmac0/gmac1 is enabled for all RK3588 boards. MAC addresses from ethaddr/eth1addr will be injected into the DT by default. Disable CONFIG_ROCKCHIP_RK3588_STABLE_MAC to turn off this feature."
+static void rk3588_fdt_fixup_mac(void *blob)
+{
+	const char *mac0 = env_get("ethaddr");
+	const char *mac1 = env_get("eth1addr");
+	int node = -1, idx = 0, ret, patched = 0, total = 0;
+	const char *macs[2] = {mac0, mac1};
+
+	log_info("[rk3588] MAC fixup: ethaddr=%s, eth1addr=%s\n",
+		mac0 ? mac0 : "(not set)", mac1 ? mac1 : "(not set)");
+
+	while ((node = fdt_node_offset_by_compatible(blob, node, "rockchip,rk3588-gmac")) >= 0 && idx < 2) {
+		total++;
+		const char *status = fdt_getprop(blob, node, "status", NULL);
+		if (status && strcmp(status, "okay") != 0) {
+			log_info("[rk3588] Skipping gmac%d node at offset %d: status='%s'\n", idx, node, status);
+			idx++;
+			continue;
+		}
+		if (macs[idx]) {
+			log_info("[rk3588] Patching gmac%d node at offset %d with %s\n", idx, node, macs[idx]);
+			ret = fdt_setprop(blob, node, "mac-address", macs[idx], 6);
+			if (ret)
+				log_info("[rk3588] Failed to set mac-address for gmac%d: %s\n", idx, fdt_strerror(ret));
+			else {
+				log_info("[rk3588] Successfully set mac-address for gmac%d\n", idx);
+				patched++;
+			}
+		} else {
+			log_info("[rk3588] No MAC for gmac%d, skipping node at offset %d\n", idx, node);
+		}
+		idx++;
+	}
+	log_info("[rk3588] Total gmac nodes found: %d, patched: %d\n", total, patched);
+	if (patched == 0 && mac0) {
+		/* Last-resort: pass first MAC via /chosen */
+		log_info("[rk3588] No gmac nodes patched, injecting ethaddr into /chosen as last resort\n");
+		ret = fdt_setprop(blob, fdt_path_offset(blob, "/chosen"), "u-boot,ethaddr", mac0, 6);
+		if (ret)
+			log_info("[rk3588] Failed to set u-boot,ethaddr in /chosen: %s\n", fdt_strerror(ret));
+		else
+			log_info("[rk3588] Set u-boot,ethaddr in /chosen\n");
+	}
+}
+#endif
+
+__weak int ft_system_setup(void *blob, struct bd_info *bd)
+{
+#if IS_ENABLED(CONFIG_ROCKCHIP_RK3588_STABLE_MAC) && !defined(CONFIG_SPL_BUILD)
+	rk3588_fdt_fixup_mac(blob);
+#endif
 	return 0;
 }
