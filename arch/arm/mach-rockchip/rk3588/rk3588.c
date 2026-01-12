@@ -262,7 +262,7 @@ int checkboard(void)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_ROCKCHIP_RK3588_STABLE_MAC) && !CONFIG_IS_ENABLED(SPL_BUILD)
+#if IS_ENABLED(CONFIG_ROCKCHIP_RK3588_STABLE_MAC) && !defined(CONFIG_SPL_BUILD)
 #warning "Stable MAC address injection for gmac0/gmac1 is enabled for all RK3588 boards. MAC addresses from ethaddr/eth1addr will be injected into the DT by default. Disable CONFIG_ROCKCHIP_RK3588_STABLE_MAC to turn off this feature."
 static void rk3588_fdt_fixup_mac(void *blob)
 {
@@ -296,7 +296,7 @@ static void rk3588_fdt_fixup_mac(void *blob)
 
 __weak int ft_system_setup(void *blob, struct bd_info *bd)
 {
-#if IS_ENABLED(CONFIG_ROCKCHIP_RK3588_STABLE_MAC) && !CONFIG_IS_ENABLED(SPL_BUILD)
+#if IS_ENABLED(CONFIG_ROCKCHIP_RK3588_STABLE_MAC) && !defined(CONFIG_SPL_BUILD)
 	rk3588_fdt_fixup_mac(blob);
 #endif
 	return 0;
