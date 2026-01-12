@@ -268,14 +268,20 @@ static void rk3588_fdt_fixup_mac(void *blob)
 {
 	const char *mac0 = env_get("ethaddr");
 	const char *mac1 = env_get("eth1addr");
-	int node, idx = 0, ret, patched = 0;
+	int node = -1, idx = 0, ret, patched = 0, total = 0;
 	const char *macs[2] = {mac0, mac1};
 
 	log_info("[rk3588] MAC fixup: ethaddr=%s, eth1addr=%s\n",
 		mac0 ? mac0 : "(not set)", mac1 ? mac1 : "(not set)");
 
-	node = fdt_node_offset_by_compatible(blob, -1, "rockchip,rk3588-gmac");
-	while (node >= 0 && idx < 2) {
+	while ((node = fdt_node_offset_by_compatible(blob, node, "rockchip,rk3588-gmac")) >= 0 && idx < 2) {
+		total++;
+		const char *status = fdt_getprop(blob, node, "status", NULL);
+		if (status && strcmp(status, "okay") != 0) {
+			log_info("[rk3588] Skipping gmac%d node at offset %d: status='%s'\n", idx, node, status);
+			idx++;
+			continue;
+		}
 		if (macs[idx]) {
 			log_info("[rk3588] Patching gmac%d node at offset %d with %s\n", idx, node, macs[idx]);
 			ret = fdt_setprop(blob, node, "mac-address", macs[idx], 6);
@@ -288,10 +294,9 @@ static void rk3588_fdt_fixup_mac(void *blob)
 		} else {
 			log_info("[rk3588] No MAC for gmac%d, skipping node at offset %d\n", idx, node);
 		}
-		node = fdt_node_offset_by_compatible(blob, node, "rockchip,rk3588-gmac");
 		idx++;
 	}
-	log_info("[rk3588] Total gmac nodes patched: %d\n", patched);
+	log_info("[rk3588] Total gmac nodes found: %d, patched: %d\n", total, patched);
 	if (patched == 0 && mac0) {
 		/* Last-resort: pass first MAC via /chosen */
 		log_info("[rk3588] No gmac nodes patched, injecting ethaddr into /chosen as last resort\n");
