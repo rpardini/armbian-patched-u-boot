@@ -632,27 +632,31 @@ int fdt_fixup_memory(void *blob, u64 start, u64 size)
 
 void fdt_fixup_ethernet(void *fdt)
 {
+	log_info("[fdt_fixup_ethernet] called\n");
 	int i = 0, j, prop;
 	char *tmp, *end;
 	char mac[16];
 	const char *path;
 	unsigned char mac_addr[ARP_HLEN];
 	int offset;
+	int total_aliases = 0, total_attempted = 0, total_skipped = 0, total_patched = 0;
 #ifdef FDT_SEQ_MACADDR_FROM_ENV
 	int nodeoff;
 	const struct fdt_property *fdt_prop;
 #endif
 
-	if (fdt_path_offset(fdt, "/aliases") < 0)
+	int aliases_off = fdt_path_offset(fdt, "/aliases");
+	if (aliases_off < 0) {
+		log_info("[fdt_fixup_ethernet] /aliases node not found\n");
 		return;
+	}
 
 	/* Cycle through all aliases */
 	for (prop = 0; ; prop++) {
 		const char *name;
 
 		/* FDT might have been edited, recompute the offset */
-		offset = fdt_first_property_offset(fdt,
-			fdt_path_offset(fdt, "/aliases"));
+		offset = fdt_first_property_offset(fdt, aliases_off);
 		/* Select property number 'prop' */
 		for (j = 0; j < prop; j++)
 			offset = fdt_next_property_offset(fdt, offset);
@@ -660,7 +664,10 @@ void fdt_fixup_ethernet(void *fdt)
 		if (offset < 0)
 			break;
 
+		total_aliases++;
 		path = fdt_getprop_by_offset(fdt, offset, &name, NULL);
+		log_info("[fdt_fixup_ethernet] alias #%d: name='%s', path='%s'\n", prop, name, path ? path : "<null>");
+
 		if (!strncmp(name, "ethernet", 8)) {
 			/* Treat plain "ethernet" same as "ethernet0". */
 			if (!strcmp(name, "ethernet")
@@ -679,33 +686,52 @@ void fdt_fixup_ethernet(void *fdt)
 				else
 					sprintf(mac, "eth%daddr", i);
 			} else {
+				log_info("[fdt_fixup_ethernet] Skipping alias '%s' (invalid index)\n", name);
+				total_skipped++;
 				continue;
 			}
 #ifdef FDT_SEQ_MACADDR_FROM_ENV
 			nodeoff = fdt_path_offset(fdt, path);
-			fdt_prop = fdt_get_property(fdt, nodeoff, "status",
-						    NULL);
-			if (fdt_prop && !strcmp(fdt_prop->data, "disabled"))
+			fdt_prop = fdt_get_property(fdt, nodeoff, "status", NULL);
+			if (fdt_prop && !strcmp(fdt_prop->data, "disabled")) {
+				log_info("[fdt_fixup_ethernet] Node '%s' is disabled, skipping\n", path);
+				total_skipped++;
 				continue;
+			}
 			i++;
 #endif
+			total_attempted++;
 			tmp = env_get(mac);
-			if (!tmp)
+			log_info("[fdt_fixup_ethernet] env var for alias '%s' is '%s', value='%s'\n", name, mac, tmp ? tmp : "<not set>");
+			if (!tmp) {
+				log_info("[fdt_fixup_ethernet] env var '%s' not set, skipping\n", mac);
+				total_skipped++;
 				continue;
-
+			}
+			int nodeoff = fdt_path_offset(fdt, path);
+			if (nodeoff < 0) {
+				log_info("[fdt_fixup_ethernet] Node path '%s' not found, skipping\n", path);
+				total_skipped++;
+				continue;
+			}
+			const struct fdt_property *status_prop = fdt_get_property(fdt, nodeoff, "status", NULL);
+			if (status_prop && strcmp((const char *)status_prop->data, "okay")) {
+				log_info("[fdt_fixup_ethernet] Node '%s' status is '%s', skipping\n", path, (const char *)status_prop->data);
+				total_skipped++;
+				continue;
+			}
 			for (j = 0; j < 6; j++) {
-				mac_addr[j] = tmp ?
-					      hextoul(tmp, &end) : 0;
+				mac_addr[j] = tmp ? hextoul(tmp, &end) : 0;
 				if (tmp)
 					tmp = (*end) ? end + 1 : end;
 			}
-
-			do_fixup_by_path(fdt, path, "mac-address",
-					 &mac_addr, 6, 0);
-			do_fixup_by_path(fdt, path, "local-mac-address",
-					 &mac_addr, 6, 1);
+			log_info("[fdt_fixup_ethernet] Patching node '%s' (offset %d) with MAC %02x:%02x:%02x:%02x:%02x:%02x\n", path, nodeoff, mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+			do_fixup_by_path(fdt, path, "mac-address", &mac_addr, 6, 0);
+			do_fixup_by_path(fdt, path, "local-mac-address", &mac_addr, 6, 1);
+			total_patched++;
 		}
 	}
+	log_info("[fdt_fixup_ethernet] SUMMARY: aliases found=%d, attempted=%d, skipped=%d, patched=%d\n", total_aliases, total_attempted, total_skipped, total_patched);
 }
 
 int fdt_record_loadable(void *blob, u32 index, const char *name,
