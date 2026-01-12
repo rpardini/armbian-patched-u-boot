@@ -1,3 +1,4 @@
+#warning "Building image-fdt.c: fdt fixup call chain instrumented for MAC debugging."
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2013, Google Inc.
@@ -578,13 +579,31 @@ __weak int ft_verify_fdt(void *fdt)
 	return 1;
 }
 
+#warning "Compiling arch_fixup_fdt() weak stub for MAC debugging."
 __weak int arch_fixup_fdt(void *blob)
 {
+	log_info("[arch_fixup_fdt] called (weak stub)\n");
 	return 0;
 }
 
+#warning "Compiling ft_board_setup() weak stub for MAC debugging."
+__weak int ft_board_setup(void *blob, struct bd_info *bd)
+{
+	log_info("[ft_board_setup] called (weak stub)\n");
+	return 0;
+}
+
+#warning "Compiling ft_system_setup() weak stub for MAC debugging."
+__weak int ft_system_setup(void *blob, struct bd_info *bd)
+{
+	log_info("[ft_system_setup] called (weak stub)\n");
+	return 0;
+}
+
+#warning "Compiling image_setup_libfdt()"
 int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 {
+	log_info("[image_setup_libfdt] called\n");
 	ulong *initrd_start = &images->initrd_start;
 	ulong *initrd_end = &images->initrd_end;
 	bool skip_board_fixup = false;
@@ -632,6 +651,8 @@ int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 					strlen(images->fit_uname_cfg) + 1, 1);
 
 	/* Update ethernet nodes */
+	#warning "Compiling fdt_fixup_ethernet() call site in image_setup_libfdt()"
+	log_info("[image_setup_libfdt] calling fdt_fixup_ethernet\n");
 	fdt_fixup_ethernet(blob);
 #if IS_ENABLED(CONFIG_CMD_PSTORE)
 	/* Append PStore configuration */
@@ -645,6 +666,8 @@ int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 	}
 
 	if (IS_ENABLED(CONFIG_OF_BOARD_SETUP) && !skip_board_fixup) {
+		#warning "Compiling ft_board_setup() call site in image_setup_libfdt()"
+		log_info("[image_setup_libfdt] calling ft_board_setup\n");
 		fdt_ret = ft_board_setup(blob, gd->bd);
 		if (fdt_ret) {
 			printf("ERROR: board-specific fdt fixup failed: %s\n",
@@ -652,7 +675,9 @@ int image_setup_libfdt(struct bootm_headers *images, void *blob, bool lmb)
 			goto err;
 		}
 	}
+	#warning "Compiling ft_system_setup() call site in image_setup_libfdt()"
 	if (IS_ENABLED(CONFIG_OF_SYSTEM_SETUP)) {
+		log_info("[image_setup_libfdt] calling ft_system_setup\n");
 		fdt_ret = ft_system_setup(blob, gd->bd);
 		if (fdt_ret) {
 			printf("ERROR: system-specific fdt fixup failed: %s\n",
