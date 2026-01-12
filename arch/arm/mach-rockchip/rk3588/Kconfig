@@ -442,4 +442,10 @@ source "board/theobroma-systems/tiger_rk3588/Kconfig"
 config SYS_CONFIG_NAME
 	default "rk3588_common"
 
+config ROCKCHIP_RK3588_STABLE_MAC
+	bool "Inject stable MAC addresses for gmac0/gmac1 into DT"
+	default y
+	help
+	  Injects MAC addresses from environment (ethaddr/eth1addr) into gmac0/gmac1 DT nodes for all RK3588 boards. Disable to turn off automatic MAC injection.
+
 endif
