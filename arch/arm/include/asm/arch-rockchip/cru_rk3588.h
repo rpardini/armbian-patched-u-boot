@@ -17,6 +17,12 @@
 #define NPLL_HZ         (850 * MHz)
 #define PPLL_HZ		(1100 * MHz)
 #define SPLL_HZ		(702 * MHz)
+#define CPU_PVTPLL_HZ	(1008 * MHz)
+
+/* SCMI clock ids, from dt-bindings/clock/rockchip,rk3588-cru.h */
+#define SCMI_CLK_CPUL		0
+#define SCMI_CLK_CPUB01		2
+#define SCMI_CLK_CPUB23		3
 
 /* RK3588 pll id */
 enum rk3588_pll_id {
