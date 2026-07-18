@@ -64,11 +64,18 @@ static int do_get_http(struct pxe_context *ctx, const char *file_path,
 	ulong addr;
 	int ret;
 
-	if (!wget_validate_uri((char *)file_path))
+	printf("PXEHTTP-DBG: do_get_http url='%s' addr=%s type=%d\n",
+	       file_path, file_addr, type);
+
+	if (!wget_validate_uri((char *)file_path)) {
+		printf("PXEHTTP-DBG: do_get_http invalid URI '%s'\n", file_path);
 		return -EINVAL;
+	}
 
 	addr = hextoul(file_addr, NULL);
 	ret = wget_request(addr, (char *)file_path, &info);
+	printf("PXEHTTP-DBG: wget_request ret=%d status=%u file_size=%lu\n",
+	       ret, info.status_code, info.file_size);
 	if (ret)
 		return log_msg_ret("http", ret);
 
@@ -104,11 +111,15 @@ static inline bool pxe_is_url(const char *s)
 static const char *pxe_get_base(void)
 {
 	const char *base = env_get("pxe_url");
+	const char *bootfile = env_get("bootfile");
+
+	printf("PXEHTTP-DBG: pxe_get_base pxe_url='%s' bootfile='%s'\n",
+	       base ? base : "(unset)", bootfile ? bootfile : "(unset)");
 
 	if (pxe_is_url(base))
 		return base;
 
-	return env_get("bootfile");
+	return bootfile;
 }
 
 /*
@@ -122,9 +133,13 @@ static pxe_getfile_func select_getfile(const char **basep)
 	*basep = base;
 
 #if defined(CONFIG_PXE_HTTP)
-	if (pxe_is_url(base))
+	if (pxe_is_url(base)) {
+		printf("PXEHTTP-DBG: transport=HTTP base='%s'\n", base);
 		return do_get_http;
+	}
 #endif
+
+	printf("PXEHTTP-DBG: transport=TFTP base='%s'\n", base ? base : "(none)");
 
 	return do_get_tftp;
 }
@@ -233,11 +248,14 @@ int pxe_get(ulong pxefile_addr_r, char **bootdirp, ulong *sizep, bool use_ipv6)
 		const char *fname = strrchr(base, '/');
 
 		fname = fname ? fname + 1 : base;
+		printf("PXEHTTP-DBG: direct config URL, fetching '%s'\n", fname);
 		if (get_pxe_file(&ctx, fname, pxefile_addr_r) > 0)
 			goto done;
 
 		goto error_exit;
 	}
+	if (getfile == do_get_http)
+		printf("PXEHTTP-DBG: base URL ends in '/', probing pxelinux.cfg/\n");
 #endif
 
 	if (IS_ENABLED(CONFIG_BOOTP_PXE_DHCP_OPTION) &&
@@ -274,11 +292,15 @@ int pxe_get(ulong pxefile_addr_r, char **bootdirp, ulong *sizep, bool use_ipv6)
 	}
 
 error_exit:
+	printf("PXEHTTP-DBG: pxe_get FAILED (no config found)\n");
 	pxe_destroy_ctx(&ctx);
 
 	return -ENOENT;
 done:
 	*bootdirp = (char *)pxe_get_base();
+
+	printf("PXEHTTP-DBG: pxe_get OK bootdir='%s' size=%lu\n",
+	       *bootdirp ? *bootdirp : "(none)", ctx.pxe_file_size);
 
 	/*
 	 * The PXE file size is returned but not the name. It is probably not
