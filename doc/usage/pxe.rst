@@ -55,6 +55,52 @@ Commands
 
 	``sysboot mmc 0.0:2 any ${pxefile_addr_r} /boot/extlinux.conf``
 
+Boot over HTTP(S)
+-----------------
+
+When ``CONFIG_PXE_HTTP`` is enabled, ``pxe get`` and ``pxe boot`` (as well
+as the ``pxe`` bootflow used by bootstd) can retrieve the configuration and
+all boot files (kernel, initrd, device tree and overlays) over HTTP or HTTPS
+using :doc:`cmd/wget`, instead of TFTP. HTTPS additionally requires
+``CONFIG_WGET_HTTPS``.
+
+The transport is selected automatically based on the boot file location:
+
+- if the ``pxe_url`` environment variable is set to an ``http://`` or
+  ``https://`` URL, it is used;
+- otherwise the DHCP-provided ``bootfile`` (DHCP option 67) is used, which
+  may itself be an ``http://`` or ``https://`` URL.
+
+Conveying a full URL in DHCP option 67 matches the UEFI HTTP Boot convention,
+so a DHCP server already configured for UEFI HTTP Boot drives this path as
+well. When the location is not a URL, TFTP is used exactly as before.
+
+If the URL ends in ``/`` it is treated as a base directory and the usual
+``pxelinux.cfg/`` name probing is performed underneath it (by UUID, MAC
+address, IP address and finally ``default``). If instead the URL points
+directly at a file, that file is fetched as-is and used as the configuration;
+paths inside it are then resolved relative to its directory.
+
+Examples::
+
+    # Explicit base URL, probe pxelinux.cfg/ underneath it
+    setenv pxe_url http://192.168.0.1/boot/
+    pxe get
+    pxe boot
+
+    # Direct URL to an extlinux.conf
+    setenv pxe_url https://example.com/images/extlinux/extlinux.conf
+    pxe get
+    pxe boot
+
+    # Zero-config: DHCP option 67 provides the URL
+    dhcp
+    pxe get
+
+For HTTPS, server certificates are verified according to the ``wget cacert``
+configuration; see :doc:`cmd/wget` and ``CONFIG_WGET_CACERT`` /
+``CONFIG_WGET_BUILTIN_CACERT``.
+
 Environment
 -----------
 
@@ -78,6 +124,13 @@ Environment
         Typically set in the DHCP response handler, this is the IP
         address of the tftp server from which other files will be
         retrieved. Required for ``pxe get``.
+
+``pxe_url``
+        Optional. When ``CONFIG_PXE_HTTP`` is enabled and this is set to an
+        ``http://`` or ``https://`` URL, files are retrieved over HTTP(S)
+        using wget instead of TFTP, and this URL is used as the base
+        location (taking precedence over ``bootfile``). See the
+        "Boot over HTTP(S)" section above.
 
 ``kernel_addr_r``, ``initrd_addr_r``
         Locations in RAM to store the kernel (or FIT image) and
