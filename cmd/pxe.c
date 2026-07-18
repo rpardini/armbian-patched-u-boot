@@ -53,6 +53,82 @@ static int do_get_tftp(struct pxe_context *ctx, const char *file_path,
 	return 1;
 }
 
+#if defined(CONFIG_PXE_HTTP)
+static int do_get_http(struct pxe_context *ctx, const char *file_path,
+		       char *file_addr, enum bootflow_img_t type, ulong *sizep)
+{
+	struct wget_http_info info = {
+		.method = WGET_HTTP_METHOD_GET,
+		.set_bootdev = false,
+	};
+	ulong addr;
+	int ret;
+
+	if (!wget_validate_uri((char *)file_path))
+		return -EINVAL;
+
+	addr = hextoul(file_addr, NULL);
+	ret = wget_request(addr, (char *)file_path, &info);
+	if (ret)
+		return log_msg_ret("http", ret);
+
+	*sizep = info.file_size;
+	ctx->pxe_file_size = info.file_size;
+
+	return 1;
+}
+
+static bool pxe_is_url(const char *s)
+{
+	return s && (!strncmp(s, "http://", 7) || !strncmp(s, "https://", 8));
+}
+#else
+static inline bool pxe_is_url(const char *s)
+{
+	return false;
+}
+#endif
+
+/*
+ * Determine the base location that PXE/extlinux files are fetched relative to.
+ *
+ * If the "pxe_url" environment variable is an "http://" or "https://" URL it is
+ * used; otherwise the DHCP-provided "bootfile" (DHCP option 67) is used, which
+ * may itself be an HTTP(S) URL. Conveying a full URL in "bootfile" follows the
+ * UEFI HTTP Boot convention (DHCP option 67).
+ *
+ * The value is re-derived from the environment on each call rather than cached,
+ * because fetching files can update environment variables (e.g. wget sets
+ * "filesize"), which may relocate the returned string.
+ */
+static const char *pxe_get_base(void)
+{
+	const char *base = env_get("pxe_url");
+
+	if (pxe_is_url(base))
+		return base;
+
+	return env_get("bootfile");
+}
+
+/*
+ * Select the getfile callback (HTTP or TFTP) for the current base location.
+ * @basep is set to the base location returned by pxe_get_base().
+ */
+static pxe_getfile_func select_getfile(const char **basep)
+{
+	const char *base = pxe_get_base();
+
+	*basep = base;
+
+#if defined(CONFIG_PXE_HTTP)
+	if (pxe_is_url(base))
+		return do_get_http;
+#endif
+
+	return do_get_tftp;
+}
+
 /*
  * Looks for a pxe file with specified config file name,
  * which is received from DHCPv4 option 209 or
@@ -136,12 +212,33 @@ static int pxe_ipaddr_paths(struct pxe_context *ctx, unsigned long pxefile_addr_
 int pxe_get(ulong pxefile_addr_r, char **bootdirp, ulong *sizep, bool use_ipv6)
 {
 	struct cmd_tbl cmdtp[] = {};	/* dummy */
+	pxe_getfile_func getfile;
 	struct pxe_context ctx;
+	const char *base;
 	int i;
 
-	if (pxe_setup_ctx(&ctx, cmdtp, do_get_tftp, NULL, false,
-			  env_get("bootfile"), use_ipv6, false))
+	getfile = select_getfile(&base);
+
+	if (pxe_setup_ctx(&ctx, cmdtp, getfile, NULL, false, base, use_ipv6,
+			  false))
 		return -ENOMEM;
+
+#if defined(CONFIG_PXE_HTTP)
+	/*
+	 * If the base is a full HTTP(S) URL to a config file (i.e. it does not
+	 * end in '/'), fetch it directly rather than probing pxelinux.cfg/
+	 * style names underneath it.
+	 */
+	if (getfile == do_get_http && *base && base[strlen(base) - 1] != '/') {
+		const char *fname = strrchr(base, '/');
+
+		fname = fname ? fname + 1 : base;
+		if (get_pxe_file(&ctx, fname, pxefile_addr_r) > 0)
+			goto done;
+
+		goto error_exit;
+	}
+#endif
 
 	if (IS_ENABLED(CONFIG_BOOTP_PXE_DHCP_OPTION) &&
 	    pxelinux_configfile && !use_ipv6) {
@@ -181,7 +278,7 @@ error_exit:
 
 	return -ENOENT;
 done:
-	*bootdirp = env_get("bootfile");
+	*bootdirp = (char *)pxe_get_base();
 
 	/*
 	 * The PXE file size is returned but not the name. It is probably not
@@ -264,7 +361,9 @@ do_pxe_boot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	unsigned long pxefile_addr_r;
 	char *pxefile_addr_str;
+	pxe_getfile_func getfile;
 	struct pxe_context ctx;
+	const char *base;
 	int ret;
 	bool use_ipv6 = false;
 
@@ -289,8 +388,9 @@ do_pxe_boot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		return 1;
 	}
 
-	if (pxe_setup_ctx(&ctx, cmdtp, do_get_tftp, NULL, false,
-			  env_get("bootfile"), use_ipv6, false)) {
+	getfile = select_getfile(&base);
+	if (pxe_setup_ctx(&ctx, cmdtp, getfile, NULL, false, base, use_ipv6,
+			  false)) {
 		printf("Out of memory\n");
 		return CMD_RET_FAILURE;
 	}
@@ -331,5 +431,8 @@ static int do_pxe(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 U_BOOT_CMD(pxe, 4, 1, do_pxe,
 	   "get and boot from pxe files",
 	   "get [" USE_IP6_CMD_PARAM "] - try to retrieve a pxe file using tftp\n"
+#if defined(CONFIG_PXE_HTTP)
+	   "                  (or http/https when 'pxe_url' or 'bootfile' is a URL)\n"
+#endif
 	   "pxe boot [pxefile_addr_r] [-ipv6] - boot from the pxe file at pxefile_addr_r\n"
 );

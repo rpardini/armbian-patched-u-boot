@@ -414,6 +414,24 @@ config PXE_UTILS
 	help
 	  Utilities for parsing PXE file formats.
 
+config PXE_HTTP
+	bool "Support PXE/extlinux network boot over HTTP(S)"
+	depends on PXE_UTILS && CMD_WGET
+	default y
+	help
+	  Allow the "pxe" command and the extlinux-pxe bootflow to fetch the
+	  PXE/extlinux configuration and the boot files (kernel, initrd, device
+	  tree, ...) over HTTP or HTTPS using wget, instead of TFTP.
+
+	  The transport is selected automatically: if the boot file location
+	  (the "pxe_url" environment variable, or otherwise the DHCP-provided
+	  "bootfile", i.e. DHCP option 67) starts with "http://" or "https://",
+	  the files are downloaded with wget. This matches the UEFI HTTP Boot
+	  convention of passing a full URL in DHCP option 67. Otherwise TFTP is
+	  used as before.
+
+	  HTTPS additionally requires CONFIG_WGET_HTTPS.
+
 config BOOT_DEFAULTS_FEATURES
 	bool
 	select SUPPORT_RAW_INITRD
