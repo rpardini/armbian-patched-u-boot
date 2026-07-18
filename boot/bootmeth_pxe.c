@@ -121,21 +121,36 @@ static int extlinux_pxe_read_file(struct udevice *dev, struct bootflow *bflow,
 				  const char *file_path, ulong addr,
 				  enum bootflow_img_t type, ulong *sizep)
 {
-	char *tftp_argv[] = {"tftp", NULL, NULL, NULL};
 	struct pxe_context *ctx = dev_get_priv(dev);
-	char file_addr[17];
 	ulong size;
 	int ret;
 
-	sprintf(file_addr, "%lx", addr);
-	tftp_argv[1] = file_addr;
-	tftp_argv[2] = (void *)file_path;
+	if (IS_ENABLED(CONFIG_PXE_HTTP) &&
+	    (!strncmp(file_path, "http://", 7) ||
+	     !strncmp(file_path, "https://", 8))) {
+		struct wget_http_info info = {
+			.method = WGET_HTTP_METHOD_GET,
+			.set_bootdev = false,
+		};
 
-	if (do_tftpb(ctx->cmdtp, 0, 3, tftp_argv))
-		return -ENOENT;
-	ret = pxe_get_file_size(&size);
-	if (ret)
-		return log_msg_ret("tftp", ret);
+		if (wget_request(addr, (char *)file_path, &info))
+			return log_msg_ret("http", -ENOENT);
+		size = info.file_size;
+	} else {
+		char *tftp_argv[] = {"tftp", NULL, NULL, NULL};
+		char file_addr[17];
+
+		sprintf(file_addr, "%lx", addr);
+		tftp_argv[1] = file_addr;
+		tftp_argv[2] = (void *)file_path;
+
+		if (do_tftpb(ctx->cmdtp, 0, 3, tftp_argv))
+			return -ENOENT;
+		ret = pxe_get_file_size(&size);
+		if (ret)
+			return log_msg_ret("tftp", ret);
+	}
+
 	if (size > *sizep)
 		return log_msg_ret("spc", -ENOSPC);
 	*sizep = size;
