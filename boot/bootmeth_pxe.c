@@ -74,13 +74,19 @@ static int extlinux_pxe_read_bootflow(struct udevice *dev,
 		return log_msg_ret("pxeb", -EPERM);
 	addr = simple_strtoul(addr_str, NULL, 16);
 
+	printf("PXEHTTP-DBG: read_bootflow dev=%s pxefile_addr_r=0x%lx\n",
+	       dev->name, addr);
+
 	ret = dhcp_run(addr, NULL, false);
+	printf("PXEHTTP-DBG: dhcp_run ret=%d bootfile='%s'\n", ret,
+	       env_get("bootfile") ? env_get("bootfile") : "(unset)");
 	if (ret)
 		return log_msg_ret("dhc", ret);
 
 	log_debug("calling pxe_get()\n");
 	ret = pxe_get(addr, &bootdir, &size, false);
-	log_debug("pxe_get() returned %d\n", ret);
+	printf("PXEHTTP-DBG: pxe_get ret=%d bootdir='%s' size=%lu\n", ret,
+	       bootdir ? bootdir : "(none)", size);
 	if (ret)
 		return log_msg_ret("pxeb", ret);
 	bflow->size = size;
@@ -104,6 +110,9 @@ static int extlinux_pxe_read_bootflow(struct udevice *dev,
 	bflow->fname = strdup(fname);
 	if (!bflow->fname)
 		return log_msg_ret("name", -ENOMEM);
+
+	printf("PXEHTTP-DBG: read_bootflow ready subdir='%s' fname='%s'\n",
+	       bflow->subdir ? bflow->subdir : "(none)", bflow->fname);
 
 	bflow->state = BOOTFLOWST_READY;
 
@@ -133,13 +142,20 @@ static int extlinux_pxe_read_file(struct udevice *dev, struct bootflow *bflow,
 			.set_bootdev = false,
 		};
 
-		if (wget_request(addr, (char *)file_path, &info))
+		printf("PXEHTTP-DBG: read_file HTTP url='%s' addr=0x%lx type=%d\n",
+		       file_path, addr, type);
+		ret = wget_request(addr, (char *)file_path, &info);
+		printf("PXEHTTP-DBG: read_file wget ret=%d status=%u size=%lu\n",
+		       ret, info.status_code, info.file_size);
+		if (ret)
 			return log_msg_ret("http", -ENOENT);
 		size = info.file_size;
 	} else {
 		char *tftp_argv[] = {"tftp", NULL, NULL, NULL};
 		char file_addr[17];
 
+		printf("PXEHTTP-DBG: read_file TFTP path='%s' addr=0x%lx type=%d\n",
+		       file_path, addr, type);
 		sprintf(file_addr, "%lx", addr);
 		tftp_argv[1] = file_addr;
 		tftp_argv[2] = (void *)file_path;
