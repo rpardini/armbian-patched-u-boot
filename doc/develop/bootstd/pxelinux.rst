@@ -11,7 +11,9 @@ U-Boot includes a parser for the `extlinux.conf` file described
 `here <https://uapi-group.org/specifications/specs/boot_loader_specification>`_.
 It consists primarily of a list of named operating systems along with the
 kernel, initial ramdisk and other settings. The file is retrieved from a network
-server using the TFTP protocol.
+server using the TFTP protocol, or over HTTP(S) when `CONFIG_PXE_HTTP` is
+enabled and the boot file location is an ``http://`` or ``https://`` URL (for
+example provided in DHCP option 67). See :doc:`../../usage/pxe` for details.
 
 When invoked on a bootdev, this bootmeth searches for the file and creates a
 bootflow if found. See
