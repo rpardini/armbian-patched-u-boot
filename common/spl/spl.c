@@ -48,6 +48,11 @@ DECLARE_BINMAN_MAGIC_SYM;
 
 u32 *boot_params_ptr = NULL;
 
+/* Board-specific control-FDT fixups which must run before DM discovers it. */
+__weak void spl_board_fixup_fdt(void)
+{
+}
+
 #if CONFIG_IS_ENABLED(BINMAN_UBOOT_SYMBOLS)
 /* See spl.h for information about this */
 #if defined(CONFIG_SPL_BUILD)
@@ -510,6 +515,10 @@ static int spl_common_init(bool setup_malloc)
 			return ret;
 		}
 	}
+
+	if (CONFIG_IS_ENABLED(BOARD_INIT))
+		spl_board_fixup_fdt();
+
 	if (CONFIG_IS_ENABLED(DM)) {
 		bootstage_start(BOOTSTAGE_ID_ACCUM_DM_SPL,
 				xpl_phase() == PHASE_TPL ? "dm tpl" : "dm_spl");
