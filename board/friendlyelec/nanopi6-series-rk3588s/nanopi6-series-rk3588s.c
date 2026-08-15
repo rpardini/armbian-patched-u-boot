@@ -32,6 +32,7 @@ static const struct board_model board_models[] = {
 	{  1372,  1644, "rockchip/rk3588s-nanopi-r6c.dtb", "nanopi6_model=r6c" }, // 4Gb variant
 
 	{ 2704, 2932, "rockchip/rk3588s-nanopi-m6.dtb", "nanopi6_model=m6" },
+	{ 3184, 3444, "rockchip/rk3588s-nanopi-m6v2.dtb", "nanopi6_model=m6v2" },
 };
 
 static const struct board_model *get_board_model(void)
@@ -60,10 +61,10 @@ static unsigned int bootrom_boot_source(void)
 	return readl(BROM_BOOTSOURCE_ID_ADDR);
 }
 
-// Return true if the board bootes is NanoPi M6, based on the detected board model.
+// Return true if the board bootes is NanoPi M6/M6V2, based on the detected board model.
 static bool is_m6(const struct board_model *model)
 {
-	return model && !strcmp(model->cmdline_arg, "nanopi6_model=m6");
+	return model && (!strcmp(model->cmdline_arg, "nanopi6_model=m6") || !strcmp(model->cmdline_arg, "nanopi6_model=m6v2"));
 }
 
 // Return true if the board booted from SPI, based on the BootROM boot source ID.
@@ -138,8 +139,12 @@ int board_fit_config_name_match(const char *name)
 		return -EINVAL;
 
 	/* Keep SFC active in U-Boot proper when SPL loaded it from M6 FSPI-M0. */
-	fit_name = booted_from_m6_spi(model) ?
-		"rockchip/rk3588s-nanopi-m6-spi.dtb" : model->fdtfile;
+	if (booted_from_m6_spi(model)) {
+		fit_name = !strcmp(model->cmdline_arg, "nanopi6_model=m6v2") ?
+			"rockchip/rk3588s-nanopi-m6v2-spi.dtb" : "rockchip/rk3588s-nanopi-m6-spi.dtb";
+	} else {
+		fit_name = model->fdtfile;
+	}
 	if (!strcmp(name, fit_name))
 		return 0;
 
