@@ -3,6 +3,7 @@
 /dts-v1/;
 
 #include "rk3588s-nanopi-r6s.dts"
+#include "rk3588-extra-pinctrl.dtsi"
 
 / {
 	model = "FriendlyElec NanoPi 6 series (U-Boot)";

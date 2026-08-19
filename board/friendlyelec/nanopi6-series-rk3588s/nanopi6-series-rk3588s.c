@@ -15,24 +15,32 @@ DECLARE_GLOBAL_DATA_PTR; // Necessary for gd->fdt_blob access in spl_board_fixup
 
 // RK3588 BootROM boot source ID for SPI flash
 #define RK3588_BROM_BOOTSOURCE_FSPI_M0	3
+#define RK3588_BROM_BOOTSOURCE_FSPI_M1	4
+
+enum board_type { BOARD_R6, BOARD_M6, BOARD_T6 };
 
 struct board_model {
 	unsigned int low;
 	unsigned int high;
 	const char *fdtfile;
 	const char *cmdline_arg;
+	enum board_type type;
 };
 
 // List of supported board models with their ADC voltage ranges, FDT file names, and kernel command line arguments.
 static const struct board_model board_models[] = {
-	{  604,  844, "rockchip/rk3588s-nanopi-r6s.dtb", "nanopi6_model=r6s" }, // 8Gb variant
-	{  848,  1096, "rockchip/rk3588s-nanopi-r6s.dtb", "nanopi6_model=r6s" }, // 4Gb variant
+	{  604,  844, "rockchip/rk3588s-nanopi-r6s.dtb", "nanopi6_model=r6s", BOARD_R6 }, // 8Gb variant
+	{  848,  1096, "rockchip/rk3588s-nanopi-r6s.dtb", "nanopi6_model=r6s", BOARD_R6 }, // 4Gb variant
 
-	{  1100,  1368, "rockchip/rk3588s-nanopi-r6c.dtb", "nanopi6_model=r6c" }, // 8Gb variant
-	{  1372,  1644, "rockchip/rk3588s-nanopi-r6c.dtb", "nanopi6_model=r6c" }, // 4Gb variant
+	{  1100,  1368, "rockchip/rk3588s-nanopi-r6c.dtb", "nanopi6_model=r6c", BOARD_R6 }, // 8Gb variant
+	{  1372,  1644, "rockchip/rk3588s-nanopi-r6c.dtb", "nanopi6_model=r6c", BOARD_R6 }, // 4Gb variant
 
-	{ 2704, 2932, "rockchip/rk3588s-nanopi-m6.dtb", "nanopi6_model=m6" },
-	{ 3184, 3444, "rockchip/rk3588s-nanopi-m6v2.dtb", "nanopi6_model=m6v2" },
+	{ 2704, 2932, "rockchip/rk3588s-nanopi-m6.dtb", "nanopi6_model=m6", BOARD_M6 },
+	{ 3184, 3444, "rockchip/rk3588s-nanopi-m6v2.dtb", "nanopi6_model=m6v2", BOARD_M6 },
+
+	{  348,  528, "rockchip/rk3588-nanopc-t6.dtb", "nanopi6_model=t6", BOARD_T6 },
+	{ 1957, 2137, "rockchip/rk3588-nanopc-t6-lts.dtb", "nanopi6_model=t6-lts", BOARD_T6 },
+	{ 2986, 3166, "rockchip/rk3588-nanopc-t6-lts-plus.dtb", "nanopi6_model=t6-lts-plus", BOARD_T6 },
 };
 
 static const struct board_model *get_board_model(void)
@@ -64,13 +72,36 @@ static unsigned int bootrom_boot_source(void)
 // Return true if the board bootes is NanoPi M6/M6V2, based on the detected board model.
 static bool is_m6(const struct board_model *model)
 {
-	return model && (!strcmp(model->cmdline_arg, "nanopi6_model=m6") || !strcmp(model->cmdline_arg, "nanopi6_model=m6v2"));
+	return model && model->type == BOARD_M6;
+}
+
+static bool is_t6(const struct board_model *model)
+{
+	return model && model->type == BOARD_T6;
 }
 
 // Return true if the board booted from SPI, based on the BootROM boot source ID.
 static bool booted_from_spi(void)
 {
 	return bootrom_boot_source() == RK3588_BROM_BOOTSOURCE_FSPI_M0;
+}
+
+static bool booted_from_fspim1(void)
+{
+	return bootrom_boot_source() == RK3588_BROM_BOOTSOURCE_FSPI_M1;
+}
+
+static void select_sfc_pinctrl(void *blob, const char *pins_path)
+{
+	int sfc = fdt_path_offset(blob, "/spi@fe2b0000");
+	int pins = fdt_path_offset(blob, pins_path);
+	u32 phandle;
+
+	if (sfc < 0 || pins < 0)
+		return;
+	phandle = fdt_get_phandle(blob, pins);
+	if (phandle)
+		fdt_setprop_u32(blob, sfc, "pinctrl-0", phandle);
 }
 
 // Return true if the board booted from M6 with SPI flash, based on the detected board model and BootROM boot source ID.
@@ -85,17 +116,22 @@ void spl_board_fixup_fdt(void)
 {
 	void *blob = (void *)gd->fdt_blob;
 	bool from_spi = booted_from_spi();
+	bool from_m1 = booted_from_fspim1();
 
 	if (!blob)
 		return;
 
-	// Only probe the SPI controller if the board booted from it, otherwise disable it in the FDT.
+	/* M6/M0 shares pins with eMMC; T6/M1 does not. */
 	do_fixup_by_path(blob, "/mmc@fe2e0000", "status",
 			 from_spi ? "disabled" : "okay",
 			 from_spi ? sizeof("disabled") : sizeof("okay"), 1);
 	do_fixup_by_path(blob, "/spi@fe2b0000", "status",
-			 from_spi ? "okay" : "disabled",
-			 from_spi ? sizeof("okay") : sizeof("disabled"), 1);
+			 (from_spi || from_m1) ? "okay" : "disabled",
+			 (from_spi || from_m1) ? sizeof("okay") : sizeof("disabled"), 1);
+	if (from_spi)
+		select_sfc_pinctrl(blob, "/pinctrl/fspi/fspim0-pins");
+	else if (from_m1)
+		select_sfc_pinctrl(blob, "/pinctrl/fspi/fspim1-pins");
 }
 
 // Board-specific SPL initialization, called after DM is initialized.
@@ -113,7 +149,7 @@ int rk_board_late_init(void)
 	const char *fdtfile;
 
 	// NanoPi R6S/R6C use SD=mmc0 and eMMC=mmc1; M6 uses the opposite aliases.
-	if (is_m6(model))
+	if (is_m6(model) || is_t6(model))
 		boot_targets = "mmc1 nvme mmc0 scsi usb pxe dhcp spi";
 	else
 		boot_targets = "mmc0 nvme mmc1 scsi usb pxe dhcp spi";

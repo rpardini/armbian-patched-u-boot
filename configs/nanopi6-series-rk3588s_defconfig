@@ -47,7 +47,7 @@ CONFIG_CMD_REGULATOR=y
 # CONFIG_SPL_DOS_PARTITION is not set
 CONFIG_SPL_OF_CONTROL=y
 CONFIG_OF_LIVE=y
-CONFIG_OF_LIST="rockchip/rk3588s-nanopi6-series rockchip/rk3588s-nanopi-r6s rockchip/rk3588s-nanopi-r6c rockchip/rk3588s-nanopi-m6 rockchip/rk3588s-nanopi-m6-spi rockchip/rk3588s-nanopi-m6v2 rockchip/rk3588s-nanopi-m6v2-spi"
+CONFIG_OF_LIST="rockchip/rk3588s-nanopi6-series rockchip/rk3588s-nanopi-r6s rockchip/rk3588s-nanopi-r6c rockchip/rk3588s-nanopi-m6 rockchip/rk3588s-nanopi-m6-spi rockchip/rk3588s-nanopi-m6v2 rockchip/rk3588s-nanopi-m6v2-spi rockchip/rk3588-nanopc-t6 rockchip/rk3588-nanopc-t6-lts rockchip/rk3588-nanopc-t6-lts-plus"
 CONFIG_OF_SPL_REMOVE_PROPS="clock-names interrupt-parent assigned-clocks assigned-clock-rates assigned-clock-parents"
 CONFIG_ENV_RELOC_GD_ENV_ADDR=y
 CONFIG_SPL_DM_SEQ_ALIAS=y
