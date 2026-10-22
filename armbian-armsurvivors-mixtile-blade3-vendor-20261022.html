@@ -165,7 +165,7 @@
                                 <tbody class="d-block">
                                   <tr class="d-block">
                                     <td class="d-block comment-body markdown-body" id="grip-content">
-                                      <h4 dir="auto">u-boot patching: 3 total patches; 3 applied; 0 with problems</h4>
+                                      <h4 dir="auto">u-boot patching: 6 total patches; 6 applied; 0 with problems</h4>
 <markdown-accessiblity-table><table role="table">
 <thead>
 <tr>
@@ -179,23 +179,44 @@
 <tbody>
 <tr>
 <td align="center">✅</td>
+<td align="left"><code class="notranslate">5000-Fixed-restart-issues-with-pd-adapter</code></td>
+<td align="left"><code class="notranslate">(+140/-76)[3M]</code></td>
+<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/56315a25309b2ba62a58c4fb49ba67b1d3be9356/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/56315a25309b2ba62a58c4fb49ba67b1d3be9356"><tt>56315a2</tt></a> <code class="notranslate">tcpm.c</code>, <code class="notranslate">fusb302.c</code>, <code class="notranslate">board.c</code></td>
+<td align="left"><code class="notranslate">tom</code> <em>Fixed restart issues with pd adapter.</em></td>
+</tr>
+<tr>
+<td align="center">✅</td>
+<td align="left"><code class="notranslate">5001-fix-power_delivery-driver-affects-adb-to-enter-loader-mode</code></td>
+<td align="left"><code class="notranslate">(+8/-1)[1M]</code></td>
+<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/2face8e4a3a6c4cd48c4a785be93beb5ca2de844/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/2face8e4a3a6c4cd48c4a785be93beb5ca2de844"><tt>2face8e</tt></a> <code class="notranslate">board.c</code></td>
+<td align="left"><code class="notranslate">tom</code> <em>fix power_delivery driver affects adb to enter loader mode.</em></td>
+</tr>
+<tr>
+<td align="center">✅</td>
+<td align="left"><code class="notranslate">5002-use-serial-as-base-for-MAC-address-find-serial-first-then-ethaddr-add-a-lot-of-debugging-adapted-for-Mixtile</code></td>
+<td align="left"><code class="notranslate">(+67/-5)[1M]</code></td>
+<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/d416c7f3ceec5f04f5eadf7034017fc74c5d08ee/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/d416c7f3ceec5f04f5eadf7034017fc74c5d08ee"><tt>d416c7f</tt></a> <code class="notranslate">board.c</code></td>
+<td align="left"><code class="notranslate">Ricardo Pardini</code> <em>use serial# as base for MAC address; find serial# first, then ethaddr; add a lot of debugging; adapted for Mixtile</em></td>
+</tr>
+<tr>
+<td align="center">✅</td>
 <td align="left"><code class="notranslate">add-board-nanopi-r76s</code></td>
 <td align="left"><code class="notranslate">(+232/-0)[2A]</code></td>
-<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/095ea8ddb5f63bcaa8b06f4c97b0d8a3be607458/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/095ea8ddb5f63bcaa8b06f4c97b0d8a3be607458"><tt>095ea8d</tt></a> <code class="notranslate">nanopi-r76s-rk3576_defconfig</code>, <code class="notranslate">rk3576-nanopi-r76s.dts</code></td>
+<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/78f7b715d6ff5a84276be8d22efd0b3a7085e31a/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/78f7b715d6ff5a84276be8d22efd0b3a7085e31a"><tt>78f7b71</tt></a> <code class="notranslate">nanopi-r76s-rk3576_defconfig</code>, <code class="notranslate">rk3576-nanopi-r76s.dts</code></td>
 <td align="left"><code class="notranslate">SuperKali</code> <em>Add uboot support for FriendlyELEC NanoPi R76S</em></td>
 </tr>
 <tr>
 <td align="center">✅</td>
 <td align="left"><code class="notranslate">fix-u-boot-itb-dependency-on-u-boot-dtb</code></td>
 <td align="left"><code class="notranslate">(+1/-1)[1M]</code></td>
-<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/fa48eb15af876abc4b278f2e1e314766d166cb56/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/fa48eb15af876abc4b278f2e1e314766d166cb56"><tt>fa48eb1</tt></a> <code class="notranslate">Makefile</code></td>
+<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/745e16b5039aa89bddd7c9c7c43002a9c4435862/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/745e16b5039aa89bddd7c9c7c43002a9c4435862"><tt>745e16b</tt></a> <code class="notranslate">Makefile</code></td>
 <td align="left"><code class="notranslate">Yi Ding</code> <em>Makefile: fix u-boot.itb dependency on u-boot.dtb</em></td>
 </tr>
 <tr>
 <td align="center">✅</td>
 <td align="left"><code class="notranslate">rk3566-Add-rk3566-to-soc-name</code></td>
 <td align="left"><code class="notranslate">(+1/-0)[1M]</code></td>
-<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/0b35bb4dc21af69bd3e237629eea57112c7d4aab/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/0b35bb4dc21af69bd3e237629eea57112c7d4aab"><tt>0b35bb4</tt></a> <code class="notranslate">rkcommon.c</code></td>
+<td align="left"><a class="commit-link" data-hovercard-type="commit" data-hovercard-url="https://github.com/rpardini/armbian-patched-u-boot/commit/0828019572ff39fd3b20e25967be0808ea9f65e8/hovercard" href="https://github.com/rpardini/armbian-patched-u-boot/commit/0828019572ff39fd3b20e25967be0808ea9f65e8"><tt>0828019</tt></a> <code class="notranslate">rkcommon.c</code></td>
 <td align="left"><code class="notranslate">Piotr Szczepanik</code> <em>Add SoC based image name (rk3566) to rk35xx u-boot</em></td>
 </tr>
 </tbody>
