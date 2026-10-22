@@ -13,6 +13,7 @@
 #include <rk_timer_irq.h>
 #include <power/power_delivery/tcpm.h>
 #include <power/power_delivery/pd_vdo.h>
+#include "pd-debug.h"
 
 #define FOREACH_STATE(S)			\
 	S(INVALID_STATE),			\
@@ -3512,11 +3513,23 @@ EXPORT_SYMBOL_GPL(tcpm_port_init);
 
 void tcpm_poll_event(struct tcpm_port *port)
 {
+	ulong start, next;
+	int i;
+
 	port->time_count = 3000;
+	pd_info("tcpm poll start: vbus %d, state %s\n",
+		port->tcpc->get_vbus(port->tcpc), tcpm_states[port->state]);
 	if (!port->tcpc->get_vbus(port->tcpc)) {
+		pd_info("tcpm poll: no VBUS, nothing to do\n");
 		return ;
 	}
 
+	/*
+	 * DEBUG: the get_timer() call also makes the compiler re-read
+	 * port->state, which only changes in IRQ context.
+	 */
+	start = get_timer(0);
+	next = 1000;
 	while (port->poll_event_cnt < TCPM_POLL_EVENT_TIME_OUT) {
 		if (!port->wait_dr_swap_Message &&
 		    ((port->state == SNK_READY) ||
@@ -3524,12 +3537,26 @@ void tcpm_poll_event(struct tcpm_port *port)
 		    (port->state == DEBUG_ACC_ATTACHED) ||
 		    (port->state == AUDIO_ACC_ATTACHED)))
 		    break;
+		if (get_timer(start) >= next) {
+			pd_info("tcpm poll: still waiting for READY after %lu ms, state %s\n",
+				next, tcpm_states[port->state]);
+			next += 1000;
+		}
 	}
+	pd_info("tcpm poll: %s after %lu ms, waiting %d ms more\n",
+		tcpm_states[port->state], get_timer(start), port->time_count);
 
 	while (port->time_count > 0) {
 		port->time_count--;
 		udelay(1000);
 	}
+
+	pd_info("tcpm poll end: state %s, pd_capable %d, rev %u, %u mV %u mA, hard resets %u\n",
+		tcpm_states[port->state], port->pd_capable,
+		port->negotiated_rev + 1, port->supply_voltage,
+		port->current_limit, port->hard_reset_count);
+	for (i = 0; i < port->nr_source_caps; i++)
+		pd_info("tcpm source cap %d: 0x%08x\n", i, port->source_caps[i]);
 	/*
 	 * At this time, call the callback function of the respective pd chip
 	 * to enter the low-power mode. In order to reduce the time spent on

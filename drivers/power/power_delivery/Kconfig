@@ -13,6 +13,15 @@ config TYPEC_TCPM
 	  The Type-C Port Controller Manager provides a USB PD and USB Type-C
 	  state machine for use with Type-C Port Controllers.
 
+config TYPEC_TCPM_DEBUG_CONSOLE
+	bool "Print TCPM / FUSB302 debug messages on the console (DEBUG)"
+	depends on TYPEC_TCPM
+	default y
+	help
+	  DEBUG (Armbian, not for upstream): print all debug() messages of
+	  the TCPM and FUSB302 drivers on the console, with a millisecond
+	  timestamp. Slows down PD handling.
+
 config TYPEC_TCPCI
 	tristate "Type-C Port Controller Interface driver"
 	depends on DM && DM_POWER_DELIVERY && DM_I2C

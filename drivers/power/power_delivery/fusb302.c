@@ -12,6 +12,7 @@
 #include <power/power_delivery/power_delivery.h>
 #include "fusb302_reg.h"
 #include <irq-generic.h>
+#include "pd-debug.h"
 /*
  * When the device is SNK, BC_LVL interrupt is used to monitor cc pins
  * for the current capability offered by the SRC. As FUSB302 chip fires
@@ -165,6 +166,100 @@ static int fusb302_i2c_clear_bits(struct fusb302_chip *chip, u8 address,
 	return fusb302_i2c_mask_write(chip, address, clear_bits, 0x00);
 }
 
+/*
+ * DEBUG (Armbian, DO NOT UPSTREAM): dump the chip registers. Before the sw
+ * reset this shows what the previous boot / power loss left behind.
+ */
+static void fusb302_dump_regs(struct fusb302_chip *chip, const char *when)
+{
+	static const u8 regs[] = {
+		FUSB_REG_SWITCHES0, FUSB_REG_SWITCHES1, FUSB_REG_CONTROL0,
+		FUSB_REG_CONTROL2, FUSB_REG_CONTROL3, FUSB_REG_MASK,
+		FUSB_REG_POWER, FUSB_REG_MASKA, FUSB_REG_MASKB,
+		FUSB_REG_STATUS0A, FUSB_REG_STATUS1A, FUSB_REG_STATUS0,
+		FUSB_REG_STATUS1,
+	};
+	char buf[160];
+	int len = 0;
+	unsigned int i;
+	u8 data;
+
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		if (fusb302_i2c_read(chip, regs[i], &data))
+			return;
+		len += snprintf(buf + len, sizeof(buf) - len, " %02x=%02x",
+				regs[i], data);
+	}
+	pd_info("fusb302 regs %s:%s\n", when, buf);
+}
+
+/*
+ * DEBUG (Armbian, DO NOT UPSTREAM): before the sw reset wipes it, decode any
+ * PD message the partner sent (and the chip auto-acked) that nobody read.
+ * Reading the interrupt registers clears them, so read them here too.
+ */
+static void fusb302_dump_stale_state(struct fusb302_chip *chip)
+{
+	__le32 payload[PD_MAX_PAYLOAD];
+	u8 data, token, crc[4];
+	u8 irq, irqa, irqb;
+	unsigned int i, n, cnt;
+	__le16 hdr_le;
+	char buf[100];
+	int len;
+	u16 hdr;
+
+	fusb302_dump_regs(chip, "pre-reset");
+	if (fusb302_i2c_read(chip, FUSB_REG_INTERRUPT, &irq) ||
+	    fusb302_i2c_read(chip, FUSB_REG_INTERRUPTA, &irqa) ||
+	    fusb302_i2c_read(chip, FUSB_REG_INTERRUPTB, &irqb))
+		return;
+	pd_info("fusb302 pre-reset latched IRQ: 0x%02x, a: 0x%02x, b: 0x%02x\n",
+		irq, irqa, irqb);
+
+	for (n = 0; n < 8; n++) {
+		if (fusb302_i2c_read(chip, FUSB_REG_STATUS1, &data))
+			return;
+		if (data & FUSB_REG_STATUS1_RX_EMPTY)
+			break;
+		if (fusb302_i2c_read(chip, FUSB_REG_FIFOS, &token) ||
+		    fusb302_i2c_block_read(chip, FUSB_REG_FIFOS, 2,
+					   (u8 *)&hdr_le))
+			return;
+		hdr = le16_to_cpu(hdr_le);
+		cnt = pd_header_cnt(hdr);
+		if (cnt && fusb302_i2c_block_read(chip, FUSB_REG_FIFOS, cnt * 4,
+						  (u8 *)payload))
+			return;
+		if (fusb302_i2c_block_read(chip, FUSB_REG_FIFOS, 4, crc))
+			return;
+		len = 0;
+		buf[0] = '\0';
+		for (i = 0; i < cnt; i++)
+			len += snprintf(buf + len, sizeof(buf) - len, " %08x",
+					le32_to_cpu(payload[i]));
+		pd_info("fusb302 pre-reset stale RX msg %u: sop=%02x hdr=%04x %s type=%u id=%u rev=%u%s\n",
+			n, token, hdr, cnt ? "DATA" : "CTRL", pd_header_type(hdr),
+			pd_header_msgid(hdr), pd_header_rev(hdr) + 1, buf);
+	}
+	pd_info("fusb302 pre-reset stale RX FIFO: %u message(s)\n", n);
+}
+
+/*
+ * DEBUG (Armbian, DO NOT UPSTREAM): this driver reads one message per
+ * TX_SUCCESS / GCRCSENT; report when more are left in the RX FIFO.
+ */
+static void fusb302_check_rx_left(struct fusb302_chip *chip, const char *irq)
+{
+	u8 data;
+
+	if (fusb302_i2c_read(chip, FUSB_REG_STATUS1, &data))
+		return;
+	if (!(data & FUSB_REG_STATUS1_RX_EMPTY))
+		pd_info("fusb302 %s: RX FIFO NOT empty after read (status1=0x%02x)\n",
+			irq, data);
+}
+
 static int fusb302_sw_reset(struct fusb302_chip *chip)
 {
 	int ret = 0;
@@ -250,6 +345,8 @@ static int tcpm_init(struct tcpc_dev *dev)
 						 tcpc_dev);
 	int ret = 0;
 	u8 data;
+
+	fusb302_dump_stale_state(chip);
 
 	ret = fusb302_sw_reset(chip);
 	if (ret)
@@ -1429,6 +1526,7 @@ static void fusb302_interrupt_handle(struct fusb302_chip *chip)
 			printf("cannot read in PD message, ret=%d\n", ret);
 			return;
 		}
+		fusb302_check_rx_left(chip, "TX_SUCCESS");
 	}
 
 	if (interrupta & FUSB_REG_INTERRUPTA_HARDRESET) {
@@ -1448,6 +1546,7 @@ static void fusb302_interrupt_handle(struct fusb302_chip *chip)
 			printf("cannot read in PD message, ret=%d\n", ret);
 			return;
 		}
+		fusb302_check_rx_left(chip, "GCRCSENT");
 	}
 }
 
@@ -1462,6 +1561,7 @@ static int fusb302_probe(struct udevice *dev)
 	struct fusb302_chip *chip = dev_get_priv(dev);
 
 	chip->udev = dev;
+	pd_info("fusb302 probe %s (%s)\n", dev->name, dev->parent->name);
 #if 0
 	/* get vbus regulator */
 	ret = regulator_get_by_platname("vbus5v0_typec", chip->vbus_regulator);
@@ -1475,6 +1575,10 @@ static int fusb302_probe(struct udevice *dev)
 		printf("%s: 'connector' node is not found\n", __func__);
 		return -ENODEV;
 	}
+	pd_info("fusb302 connector %s, label %s, power-role %s\n",
+		ofnode_get_name(chip->tcpc_dev.connector_node),
+		ofnode_read_string(chip->tcpc_dev.connector_node, "label") ?: "-",
+		ofnode_read_string(chip->tcpc_dev.connector_node, "power-role") ?: "-");
 
 	init_tcpc_dev(&chip->tcpc_dev);
 	chip->tcpm_port = tcpm_port_init(dev, &chip->tcpc_dev);
@@ -1491,7 +1595,12 @@ static int fusb302_probe(struct udevice *dev)
 	irq_install_handler(chip->irq, fusb302_irq_intn, chip);
 	irq_set_irq_type(chip->irq, IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_LEVEL_LOW);
 	irq_handler_enable(chip->irq);
+	pd_info("fusb302 irq %d enabled, polling\n", chip->irq);
 	tcpm_poll_event(chip->tcpm_port);
+	fusb302_dump_regs(chip, "at handover");
+	pd_info("fusb302 probe done: %u mV %u mA\n",
+		tcpm_get_voltage(chip->tcpm_port) / 1000,
+		tcpm_get_current(chip->tcpm_port) / 1000);
 	return 0;
 }
 

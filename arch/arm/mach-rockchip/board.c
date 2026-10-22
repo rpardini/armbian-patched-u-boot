@@ -456,18 +456,29 @@ static void scan_run_cmd(void)
 static void power_delivery_func(void)
 {
 	struct udevice *dev;
-	uclass_get_device_by_driver(UCLASS_PD,
+	int ret;
+
+	/* DEBUG (Armbian): without the kernel DTB there is no connector node */
+	printf("[%7lu] pd: probing fusb302, kernel dtb %s\n", get_timer(0),
+	       gd->flags & GD_FLG_KDTB_READY ? "in use" : "NOT in use");
+	ret = uclass_get_device_by_driver(UCLASS_PD,
 			DM_GET_DRIVER(fusb302), &dev);
+	printf("[%7lu] pd: fusb302 probe ret=%d%s%s\n", get_timer(0), ret,
+	       ret ? "" : ", dev ", ret ? "" : dev->name);
 }
 
 int board_late_init(void)
 {
 	int boot_mode;
 	boot_mode = readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG);
+	printf("[%7lu] pd: boot_mode 0x%x\n", get_timer(0), boot_mode);
 	if (boot_mode == BOOT_MODE_NORMAL ||
 			boot_mode == BOOT_MODE_RECOVERY ||
 			boot_mode == BOOT_MODE_UNDEFINE) {
 		power_delivery_func();
+	} else {
+		printf("[%7lu] pd: boot_mode 0x%x, skipping fusb302\n",
+		       get_timer(0), boot_mode);
 	}
 
 #ifdef CONFIG_ROCKCHIP_SET_ETHADDR
