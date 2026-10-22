@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <usb/tcpm.h>
 #include "tcpm-internal.h"
+#include "tcpm-debug.h"
 
 int tcpm_get_voltage(struct udevice *dev)
 {
@@ -83,7 +84,7 @@ int tcpm_get(int index, struct udevice **devp)
 static int tcpm_post_bind(struct udevice *dev)
 {
 	const struct dm_tcpm_ops *drvops = dev_get_driver_ops(dev);
-	const char *cap_str;
+	const char *cap_str, *label;
 	ofnode node;
 	int ret;
 
@@ -119,21 +120,32 @@ static int tcpm_post_bind(struct udevice *dev)
 	if (ret)
 		return ret;
 
-	if (ofnode_read_bool(node, "self-powered"))
+	label = ofnode_read_string(node, "label");
+
+	if (ofnode_read_bool(node, "self-powered")) {
+		dev_info(dev, "[%s] NOT auto-probing TCPM: connector is 'self-powered'\n",
+			 label);
 		return 0;
+	}
 
 	cap_str = ofnode_read_string(node, "power-role");
 	if (!cap_str)
 		return -EINVAL;
 
-	if (strcmp("sink", cap_str))
+	if (strcmp("sink", cap_str)) {
+		dev_info(dev, "[%s] NOT auto-probing TCPM: power-role is '%s' (only 'sink' is auto-probed)\n",
+			 label, cap_str);
 		return 0;
+	}
 
 	/* Do not auto-probe PD controller when PD is disabled */
-	if (ofnode_read_bool(node, "pd-disable"))
+	if (ofnode_read_bool(node, "pd-disable")) {
+		dev_info(dev, "[%s] NOT auto-probing TCPM: connector has 'pd-disable'\n",
+			 label);
 		return 0;
+	}
 
-	dev_info(dev, "probing Type-C port manager...");
+	dev_info(dev, "[%s] probing Type-C port manager...\n", label);
 
 	dev_or_flags(dev, DM_FLAG_PROBE_AFTER_BIND);
 

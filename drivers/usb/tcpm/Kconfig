@@ -14,3 +14,12 @@ config TYPEC_FUSB302
 	  The Fairchild FUSB302 Type-C chip driver that works with
 	  Type-C Port Controller Manager to provide USB PD and USB
 	  Type-C functionalities.
+
+config TYPEC_TCPM_DEBUG_VERBOSE
+	bool "Verbose TCPM/FUSB302 tracing (DEBUG, breaks PD timing)"
+	depends on TYPEC_TCPM
+	help
+	  Trace every FUSB302 register write and dump all PD messages and
+	  PDOs on the console. Printing at 1.5 Mbaud makes the sink miss
+	  the ~25 ms tSenderResponse window for its Request, causing the
+	  source to issue a Hard Reset. Only enable for offline analysis.

@@ -5,6 +5,9 @@
 
 #include <adc.h>
 #include <env.h>
+#include <time.h>
+#include <asm/io.h>
+#include <asm/arch-rockchip/cru_rk3588.h>
 #include <fdtdec.h>
 #include <fdt_support.h>
 #include <asm/arch-rockchip/sdram.h>
@@ -52,7 +55,17 @@ static const struct board_model *get_board_model(void)
 
 int rk_board_late_init(void)
 {
-	const struct board_model *model = get_board_model();
+	const struct board_model *model;
+
+	/*
+	 * DEBUG (DO NOT UPSTREAM): 0 means power-on reset (i.e. the board lost
+	 * power, e.g. a USB PD hard reset or brown-out); non-zero bits point
+	 * to a watchdog / thermal / software global reset.
+	 */
+	printf("[%7lu] DEBUG: CRU GLB_RST_ST = 0x%08x\n", get_timer(0),
+	       readl(CRU_BASE + RK3588_GLB_RST_ST));
+
+	model = get_board_model();
 
 	if (model)
 		env_set("fdtfile", model->fdtfile);

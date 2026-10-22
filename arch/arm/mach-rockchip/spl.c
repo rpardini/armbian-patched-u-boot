@@ -14,6 +14,7 @@
 #include <mapmem.h>
 #include <ram.h>
 #include <spl.h>
+#include <time.h>
 #include <asm/arch-rockchip/bootrom.h>
 #include <asm/arch-rockchip/timer.h>
 #include <asm/global_data.h>
@@ -143,10 +144,14 @@ void board_init_f(ulong dummy)
 	}
 #endif
 	preloader_console_init();
+	/* DEBUG (DO NOT UPSTREAM): USB PD timeline, ms since power-on */
+	printf("[%7lu] DEBUG: SPL console up\n", get_timer(0));
 }
 
 void spl_board_prepare_for_boot(void)
 {
+	printf("[%7lu] DEBUG: SPL jumping to next stage\n", get_timer(0));
+
 	if (!IS_ENABLED(CONFIG_ARM64) || CONFIG_IS_ENABLED(SYS_DCACHE_OFF))
 		return;
 

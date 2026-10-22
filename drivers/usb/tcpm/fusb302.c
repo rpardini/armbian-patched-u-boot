@@ -14,6 +14,7 @@
 #include <dm/device_compat.h>
 #include <usb/tcpm.h>
 #include "fusb302_reg.h"
+#include "tcpm-debug.h"
 
 #define FUSB302_MAX_MSG_LEN 0x1F
 #define T_BC_LVL_DEBOUNCE_DELAY_MS 30
@@ -67,6 +68,8 @@ static int fusb302_i2c_write(struct udevice *dev, u8 address, u8 data)
 {
 	int ret;
 
+	if (IS_ENABLED(CONFIG_TYPEC_TCPM_DEBUG_VERBOSE))
+		dev_dbg(dev, "REG W [0x%02x] <= 0x%02x\n", address, data);
 	ret = dm_i2c_write(dev, address, &data, 1);
 	if (ret)
 		dev_err(dev, "cannot write 0x%02x to 0x%02x, ret=%d\n",
@@ -148,6 +151,115 @@ static int fusb302_i2c_clear_bits(struct udevice *dev, u8 address, u8 clear_bits
 	return fusb302_i2c_mask_write(dev, address, clear_bits, 0x00);
 }
 
+/*
+ * Dump the FUSB302 register file. The INTERRUPT* registers are clear-on-read,
+ * so they are only dumped when @irqs is set.
+ */
+static void fusb302_dump_regs(struct udevice *dev, const char *tag, bool irqs)
+{
+	static const u8 regs[] = {
+		FUSB_REG_DEVICE_ID, FUSB_REG_SWITCHES0, FUSB_REG_SWITCHES1,
+		FUSB_REG_MEASURE, FUSB_REG_CONTROL0, FUSB_REG_CONTROL1,
+		FUSB_REG_CONTROL2, FUSB_REG_CONTROL3, FUSB_REG_MASK,
+		FUSB_REG_POWER, FUSB_REG_MASKA, FUSB_REG_MASKB,
+		FUSB_REG_STATUS0A, FUSB_REG_STATUS1A, FUSB_REG_STATUS0,
+		FUSB_REG_STATUS1,
+	};
+	static const u8 irq_regs[] = {
+		FUSB_REG_INTERRUPT, FUSB_REG_INTERRUPTA, FUSB_REG_INTERRUPTB,
+	};
+	unsigned int i;
+	u8 data;
+
+	dev_info(dev, "register dump (%s):\n", tag);
+	for (i = 0; i < ARRAY_SIZE(regs); i++) {
+		if (dm_i2c_read(dev, regs[i], &data, 1))
+			dev_info(dev, "  [0x%02x] = <read error>\n", regs[i]);
+		else
+			dev_info(dev, "  [0x%02x] = 0x%02x\n", regs[i], data);
+	}
+	if (!irqs)
+		return;
+	for (i = 0; i < ARRAY_SIZE(irq_regs); i++) {
+		if (dm_i2c_read(dev, irq_regs[i], &data, 1))
+			dev_info(dev, "  [0x%02x] = <read error>\n", irq_regs[i]);
+		else
+			dev_info(dev, "  [0x%02x] = 0x%02x (irq)\n", irq_regs[i], data);
+	}
+}
+
+static const char * const pd_ctrl_name[] = {
+	[1] = "GoodCRC", [2] = "GotoMin", [3] = "Accept", [4] = "Reject",
+	[5] = "Ping", [6] = "PS_RDY", [7] = "Get_Source_Cap",
+	[8] = "Get_Sink_Cap", [9] = "DR_Swap", [10] = "PR_Swap",
+	[11] = "VCONN_Swap", [12] = "Wait", [13] = "Soft_Reset",
+	[14] = "Data_Reset", [15] = "Data_Reset_Complete",
+	[16] = "Not_Supported", [17] = "Get_Source_Cap_Extended",
+	[18] = "Get_Status", [19] = "FR_Swap", [20] = "Get_PPS_Status",
+	[21] = "Get_Country_Codes", [22] = "Get_Sink_Cap_Extended",
+	[23] = "Get_Source_Info", [24] = "Get_Revision",
+};
+
+static const char * const pd_data_name[] = {
+	[1] = "Source_Cap", [2] = "Request", [3] = "BIST", [4] = "Sink_Cap",
+	[5] = "Battery_Status", [6] = "Alert", [7] = "Get_Country_Info",
+	[8] = "Enter_USB", [9] = "EPR_Request", [10] = "EPR_Mode",
+	[11] = "Source_Info", [12] = "Revision", [15] = "Vendor_Defined",
+};
+
+/*
+ * Read out and decode any PD messages left in the RX FIFO by a previous
+ * boot stage, i.e. messages the partner sent that nobody processed.
+ */
+static void fusb302_dump_stale_rx(struct udevice *dev)
+{
+	unsigned int i, n, cnt, type;
+	u8 status1, token, crc[4];
+	const char *name;
+	__le32 payload[PD_MAX_PAYLOAD];
+	__le16 hdr_le;
+	u16 hdr;
+
+	for (n = 0; n < 8; n++) {
+		if (dm_i2c_read(dev, FUSB_REG_STATUS1, &status1, 1))
+			return;
+		if (status1 & FUSB_REG_STATUS1_RX_EMPTY) {
+			if (!n)
+				dev_info(dev, "stale RX FIFO: empty\n");
+			return;
+		}
+
+		if (dm_i2c_read(dev, FUSB_REG_FIFOS, &token, 1) ||
+		    dm_i2c_read(dev, FUSB_REG_FIFOS, (u8 *)&hdr_le, 2))
+			return;
+		hdr = le16_to_cpu(hdr_le);
+		cnt = pd_header_cnt(hdr);
+		type = pd_header_type(hdr);
+		if (cnt && dm_i2c_read(dev, FUSB_REG_FIFOS, (u8 *)payload, cnt * 4))
+			return;
+		if (dm_i2c_read(dev, FUSB_REG_FIFOS, crc, 4))
+			return;
+
+		if (hdr & PD_HEADER_EXT_HDR)
+			name = "(extended)";
+		else if (cnt)
+			name = type < ARRAY_SIZE(pd_data_name) ? pd_data_name[type] : NULL;
+		else
+			name = type < ARRAY_SIZE(pd_ctrl_name) ? pd_ctrl_name[type] : NULL;
+
+		dev_info(dev, "stale RX FIFO msg %u: sop=0x%02x hdr=0x%04x %s %s type=%u cnt=%u id=%u rev=%u pwr=%s data=%s crc=%02x%02x%02x%02x\n",
+			 n, token, hdr, cnt ? "DATA" : "CTRL", name ? name : "?",
+			 type, cnt, pd_header_msgid(hdr), pd_header_rev(hdr) + 1,
+			 hdr & PD_HEADER_PWR_ROLE ? "src" : "snk",
+			 hdr & PD_HEADER_DATA_ROLE ? "dfp" : "ufp",
+			 crc[3], crc[2], crc[1], crc[0]);
+		for (i = 0; i < cnt; i++)
+			dev_info(dev, "stale RX FIFO msg %u:   obj[%u]=0x%08x\n",
+				 n, i, le32_to_cpu(payload[i]));
+	}
+	dev_info(dev, "stale RX FIFO: giving up after %u messages\n", n);
+}
+
 static int fusb302_sw_reset(struct udevice *dev)
 {
 	int ret = fusb302_i2c_write(dev, FUSB_REG_RESET, FUSB_REG_RESET_SW_RESET);
@@ -227,6 +339,10 @@ static int fusb302_init(struct udevice *dev)
 	int ret;
 	u8 data;
 
+	/* what did the previous stage (BootROM/SPL/Linux before reboot) leave? */
+	fusb302_dump_regs(dev, "before sw reset", true);
+	fusb302_dump_stale_rx(dev);
+
 	ret = fusb302_sw_reset(dev);
 	if (ret)
 		return ret;
@@ -247,6 +363,9 @@ static int fusb302_init(struct udevice *dev)
 	if (ret)
 		return ret;
 	dev_info(dev, "fusb302 device ID: 0x%02x\n", data);
+	dev_info(dev, "fusb302 VBUS %s after init\n",
+		 chip->vbus_present ? "present" : "NOT present");
+	fusb302_dump_regs(dev, "after init", false);
 
 	return ret;
 }
@@ -695,12 +814,14 @@ static int fusb302_pd_send_message(struct udevice *dev,
 	if (ret)
 		return ret;
 	dev_dbg(dev, "Send PD message (header=0x%x len=%d)\n", msg->header, len);
+	tcpm_dbg_dump_msg(dev, "FIFO TX", msg);
 
 	return ret;
 }
 
 static int fusb302_pd_send_hardreset(struct udevice *dev)
 {
+	dev_warn(dev, "sending HARD RESET on the wire\n");
 	return fusb302_i2c_set_bits(dev, FUSB_REG_CONTROL3,
 				    FUSB_REG_CONTROL3_SEND_HARDRESET);
 }
@@ -821,6 +942,10 @@ static int fusb302_enter_low_power_mode(struct udevice *dev,
 		reg = FUSB_REG_POWER_PWR_LOW;
 	else
 		reg = 0;
+
+	dev_info(dev, "entering low power: attached %d pd_capable %d -> POWER=0x%02x\n",
+		 attached, pd_capable, reg);
+	fusb302_dump_regs(dev, "before low power", false);
 
 	return fusb302_set_power_mode(dev, reg);
 }
@@ -1144,7 +1269,9 @@ static int fusb302_pd_read_message(struct udevice *dev,
 	ret = fusb302_i2c_block_read(dev, FUSB_REG_FIFOS, 4, crc);
 	if (ret)
 		return ret;
-	dev_dbg(dev, "Received PD message (header=0x%x len=%d)\n", msg->header, len);
+	dev_dbg(dev, "Received PD message (sop=0x%02x header=0x%x len=%d crc=%02x%02x%02x%02x)\n",
+		token, msg->header, len, crc[3], crc[2], crc[1], crc[0]);
+	tcpm_dbg_dump_msg(dev, "FIFO RX", msg);
 
 	/*
 	 * Check if we've read off a GoodCRC message. If so then indicate to
@@ -1301,7 +1428,7 @@ static void fusb302_interrupt_handle(struct udevice *dev)
 	}
 
 	if (interrupta & FUSB_REG_INTERRUPTA_HARDRESET) {
-		dev_dbg(dev, "IRQ: PD received hardreset\n");
+		dev_warn(dev, "IRQ: PD received HARD RESET from partner\n");
 		ret = fusb302_pd_reset(dev);
 		if (ret) {
 			dev_err(dev, "cannot PD reset, ret=%d\n", ret);

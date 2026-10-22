@@ -18,6 +18,7 @@
 #include <time.h>
 #include <usb/tcpm.h>
 #include "tcpm-internal.h"
+#include "tcpm-debug.h"
 
 const char * const tcpm_states[] = {
 	FOREACH_TCPM_STATE(GENERATE_TCPM_STRING)
@@ -186,11 +187,13 @@ static int tcpm_pd_transmit(struct udevice *dev,
 	bool tx_complete;
 	int ret;
 
-	if (msg)
+	if (msg) {
 		dev_dbg(dev, "TCPM: PD TX, header: %#x\n",
 			le16_to_cpu(msg->header));
-	else
+		tcpm_dbg_dump_msg(dev, "TX", msg);
+	} else {
 		dev_dbg(dev, "TCPM: PD TX, type: %#x\n", type);
+	}
 
 	port->tx_complete = false;
 	ret = drvops->pd_transmit(dev, type, msg, port->negotiated_rev);
@@ -212,6 +215,9 @@ static int tcpm_pd_transmit(struct udevice *dev,
 		dev_err(dev, "TCPM: PD transmit data failed: %d\n", ret);
 		return ret;
 	}
+
+	dev_dbg(dev, "TCPM: PD TX done, tx_status=%u (0=ok 1=discarded 2=failed)\n",
+		port->tx_status);
 
 	switch (port->tx_status) {
 	case TCPC_TX_SUCCESS:
@@ -631,6 +637,10 @@ static void tcpm_pd_data_request(struct udevice *dev,
 
 		port->nr_source_caps = cnt;
 
+		for (i = 0; i < cnt; i++)
+			tcpm_dbg_dump_pdo(dev, "TCPM: partner source", i,
+					  port->source_caps[i]);
+
 		tcpm_validate_caps(dev, port->source_caps,
 				   port->nr_source_caps);
 
@@ -706,6 +716,9 @@ static void tcpm_pd_ctrl_request(struct udevice *dev,
 	enum pd_ctrl_msg_type type = pd_header_type_le(msg->header);
 	struct tcpm_port *port = dev_get_uclass_plat(dev);
 	enum tcpm_state next_state;
+
+	dev_dbg(dev, "TCPM: ctrl msg type %u in state %s\n", type,
+		tcpm_states[port->state]);
 
 	switch (type) {
 	case PD_CTRL_GOOD_CRC:
@@ -860,8 +873,13 @@ static void tcpm_pd_rx_handler(struct udevice *dev,
 	unsigned int cnt = pd_header_cnt_le(msg->header);
 	bool remote_is_host, local_is_host;
 
-	dev_dbg(dev, "TCPM: PD RX, header: %#x [%d]\n",
-		le16_to_cpu(msg->header), port->attached);
+	dev_dbg(dev, "TCPM: PD RX, header: %#x [%d] state %s\n",
+		le16_to_cpu(msg->header), port->attached,
+		tcpm_states[port->state]);
+	tcpm_dbg_dump_msg(dev, "RX", msg);
+
+	if (!port->attached)
+		dev_warn(dev, "TCPM: PD RX while not attached, message DROPPED\n");
 
 	if (port->attached) {
 		enum pd_ctrl_msg_type type = pd_header_type_le(msg->header);
@@ -1735,6 +1753,8 @@ static void run_state_machine(struct udevice *dev)
 	case HARD_RESET_SEND:
 		if (!port->self_powered && port->port_type == TYPEC_PORT_SNK)
 			dev_err(dev, "Initiating hard-reset, which might result in machine power-loss.\n");
+		dev_warn(dev, "TCPM: SENDING HARD RESET (prev state %s) - source will drop VBUS!\n",
+			 tcpm_states[port->prev_state]);
 		tcpm_pd_transmit(dev, TCPC_TX_HARD_RESET, NULL);
 		tcpm_set_state(dev, HARD_RESET_START, 0);
 		port->wait_dr_swap_message = false;
@@ -2119,7 +2139,8 @@ void tcpm_pd_hard_reset(struct udevice *dev)
 	struct tcpm_port *port = dev_get_uclass_plat(dev);
 
 	tcpm_reset_event_cnt(dev);
-	dev_dbg(dev, "TCPM: Received hard reset\n");
+	dev_warn(dev, "TCPM: Received HARD RESET in state %s (count %u)\n",
+		 tcpm_states[port->state], port->hard_reset_count);
 
 	/* If a hard reset message is received during the port reset process,
 	 * we should ignore it, that is, do not set port->state to HARD_RESET_START.
@@ -2155,6 +2176,10 @@ static void tcpm_init(struct udevice *dev)
 	port->vbus_present = drvops->get_vbus(dev);
 	if (port->vbus_present)
 		port->vbus_never_low = true;
+
+	dev_info(dev, "TCPM: init: vbus_present=%d port_type=%d try_role=%d default state %s\n",
+		 port->vbus_present, port->port_type, port->try_role,
+		 tcpm_states[tcpm_default_state(port)]);
 
 	/*
 	 * 1. When vbus_present is true, voltage on VBUS is already at VSAFE5V.
@@ -2255,6 +2280,12 @@ sink:
 
 	port->self_powered = ofnode_read_bool(node, "self-powered");
 
+	for (ret = 0; ret < port->nr_snk_pdo; ret++)
+		tcpm_dbg_dump_pdo(dev, "TCPM: own sink", ret,
+				  port->snk_pdo[ret]);
+	dev_info(dev, "TCPM: operating sink power %u mW, self-powered %d\n",
+		 port->operating_snk_mw, port->self_powered);
+
 	return 0;
 }
 
@@ -2294,11 +2325,20 @@ static void tcpm_poll_event(struct udevice *dev)
 {
 	const struct dm_tcpm_ops *drvops = dev_get_driver_ops(dev);
 	struct tcpm_port *port = dev_get_uclass_plat(dev);
+	ulong start = get_timer(0);
+	unsigned long loops = 0;
 
-	if (!drvops->get_vbus(dev))
+	if (!drvops->get_vbus(dev)) {
+		dev_warn(dev, "TCPM: no VBUS at probe, skipping PD polling (state %s)\n",
+			 tcpm_states[port->state]);
 		return;
+	}
+
+	dev_info(dev, "TCPM: polling for PD events, state %s\n",
+		 tcpm_states[port->state]);
 
 	while (port->poll_event_cnt < TCPM_POLL_EVENT_TIME_OUT) {
+		loops++;
 		if (!port->wait_dr_swap_message &&
 		    (port->state == SNK_READY || port->state == SRC_READY))
 			break;
@@ -2322,6 +2362,11 @@ static void tcpm_poll_event(struct udevice *dev)
 		dev_warn(dev, "TCPM: exit in state %s\n",
 			 tcpm_states[port->state]);
 	}
+
+	dev_info(dev, "TCPM: polling done after %lu ms / %lu loops, state %s, attached %d, pd_capable %d, explicit_contract %d, %u mV %u mA\n",
+		 get_timer(start), loops, tcpm_states[port->state],
+		 port->attached, port->pd_capable, port->explicit_contract,
+		 port->supply_voltage, port->current_limit);
 
 	/*
 	 * At this time, call the callback function of the respective pd chip
