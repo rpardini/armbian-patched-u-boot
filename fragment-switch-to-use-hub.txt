@@ -1,0 +1,249 @@
+[root@mixtile-blade3](arm2023_mixtile-blade3) ~
+# lsusb -vt
+/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=ehci-platform/1p, 480M
+    ID 1d6b:0002 Linux Foundation 2.0 root hub
+/:  Bus 002.Port 001: Dev 001, Class=root_hub, Driver=ohci-platform/1p, 12M
+    ID 1d6b:0001 Linux Foundation 1.1 root hub
+/:  Bus 003.Port 001: Dev 001, Class=root_hub, Driver=ehci-platform/1p, 480M
+    ID 1d6b:0002 Linux Foundation 2.0 root hub
+/:  Bus 004.Port 001: Dev 001, Class=root_hub, Driver=ohci-platform/1p, 12M
+    ID 1d6b:0001 Linux Foundation 1.1 root hub
+
+[root@mixtile-blade3](arm2023_mixtile-blade3) ~
+# cat /sys/class/typec/port0/data_role
+host [device]
+
+[root@mixtile-blade3](arm2023_mixtile-blade3) ~
+# echo host > /sys/class/typec/port0/data_role
+[  621.106127] typec_fusb302 1-0022: tcpm: AMS DATA_ROLE_SWAP start
+[  621.106152] typec_fusb302 1-0022: tcpm: state change SNK_READY -> AMS_START [rev2 DATA_ROLE_SWAP]
+[  621.106468] typec_fusb302 1-0022: tcpm: state change AMS_START -> DR_SWAP_SEND [rev2 DATA_ROLE_SWAP]
+[  621.106517] typec_fusb302 1-0022: tcpm: PD TX, header: 0x449
+[  621.109851] typec_fusb302 1-0022: fusb302: sending PD message header: 449
+[  621.109886] typec_fusb302 1-0022: fusb302: sending PD message len: 0
+[  621.113374] typec_fusb302 1-0022: fusb302: IRQ: 0x41, a: 0x04, b: 0x01, status0: 0x93
+[  621.113409] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.113437] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.116896] typec_fusb302 1-0022: fusb302: PD message header: 561
+[  621.116919] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.116936] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.117084] typec_fusb302 1-0022: tcpm: pending state change DR_SWAP_SEND -> DR_SWAP_SEND_TIMEOUT @ 60 ms [rev2 DATA_ROLE_SWAP]
+[  621.120223] typec_fusb302 1-0022: fusb302: PD message header: 963
+[  621.120245] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.120392] typec_fusb302 1-0022: tcpm: PD RX, header: 0x963 [1]
+[  621.120419] typec_fusb302 1-0022: tcpm: state change DR_SWAP_SEND -> DR_SWAP_CHANGE_DR [rev2 DATA_ROLE_SWAP]
+[  621.120444] typec_fusb302 1-0022: tcpm: Requesting mux state 1, usb-role 1, orientation 2
+[  621.120930] typec_fusb302 1-0022: fusb302: read 2 PD messages from RX FIFO
+[  621.120948] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.122757] typec_fusb302 1-0022: fusb302: pd header := Sink, Host
+[  621.122864] typec_fusb302 1-0022: tcpm: vdm discovery state changed: VDM_DISCOVERY_COMPLETE -> VDM_DISCOVERY_UNKNOWN
+[  621.122883] typec_fusb302 1-0022: tcpm: AMS DATA_ROLE_SWAP finished
+[  621.122900] typec_fusb302 1-0022: tcpm: state change DR_SWAP_CHANGE_DR -> SNK_READY [rev2 NONE_AMS]
+[  621.122943] typec_fusb302 1-0022: tcpm: tcpm_vdm_discovery_work state [VDM_DISCOVERY_UNKNOWN]
+[  621.122966] typec_fusb302 1-0022: tcpm: AMS DISCOVER_IDENTITY start
+[  621.122983] typec_fusb302 1-0022: tcpm: PD TX, header: 0x166f
+[  621.125417] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x00, status0: 0x93
+[  621.125448] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.128944] typec_fusb302 1-0022: fusb302: sending PD message header: 166f
+[  621.128977] typec_fusb302 1-0022: fusb302: sending PD message len: 4
+
+[root@mixtile-blade3](arm2023_mixtile-blade3) ~
+# [  621.135823] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x04, b: 0x00, status0: 0x93
+[  621.135862] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.135890] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.138711] typec_fusb302 1-0022: fusb302: PD message header: 741
+[  621.138747] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.138773] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.143938] typec_fusb302 1-0022: fusb302: PD message header: 5b4f
+[  621.143974] typec_fusb302 1-0022: fusb302: PD message len: 20
+[  621.144065] typec_fusb302 1-0022: tcpm: PD RX, header: 0x5b4f [1]
+[  621.144107] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0xff008041 type 1 cmd 1 len 5
+[  621.144140] typec_fusb302 1-0022: tcpm: AMS DISCOVER_IDENTITY finished
+[  621.144165] typec_fusb302 1-0022: tcpm: vdm discovery state changed: VDM_DISCOVERY_UNKNOWN -> VDM_DISCOVERY_PARTNER_IDENT
+[  621.144321] typec_fusb302 1-0022: tcpm: Identity: 1d5c:7102.0726
+[  621.144359] typec_fusb302 1-0022: tcpm: AMS DISCOVER_SVIDS start
+[  621.144384] typec_fusb302 1-0022: tcpm: PD TX, header: 0x186f
+[  621.144542] typec_fusb302 1-0022: fusb302: read 2 PD messages from RX FIFO
+[  621.147023] typec_fusb302 1-0022: fusb302: sending PD message header: 186f
+[  621.147033] typec_fusb302 1-0022: fusb302: sending PD message len: 4
+[  621.148886] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x01, status0: 0x93
+[  621.148896] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.148903] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.151173] typec_fusb302 1-0022: fusb302: PD message header: 941
+[  621.151183] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.151191] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.153453] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x04, b: 0x00, status0: 0x93
+[  621.153461] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.153468] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.157055] typec_fusb302 1-0022: fusb302: PD message header: 3d4f
+[  621.157064] typec_fusb302 1-0022: fusb302: PD message len: 12
+[  621.157141] typec_fusb302 1-0022: tcpm: PD RX, header: 0x3d4f [1]
+[  621.157152] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0xff008042 type 1 cmd 2 len 3
+[  621.157162] typec_fusb302 1-0022: tcpm: AMS DISCOVER_SVIDS finished
+[  621.157176] typec_fusb302 1-0022: tcpm: SVID 1: 0xff01
+[  621.157182] typec_fusb302 1-0022: tcpm: SVID 2: 0x1d5c
+[  621.157189] typec_fusb302 1-0022: tcpm: vdm discovery state changed: VDM_DISCOVERY_PARTNER_IDENT -> VDM_DISCOVERY_PARTNER_SVIDS
+[  621.157199] typec_fusb302 1-0022: tcpm: AMS DISCOVER_MODES start
+[  621.157206] typec_fusb302 1-0022: tcpm: PD TX, header: 0x1a6f
+[  621.159601] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x01, status0: 0x93
+[  621.159611] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.159618] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.162555] typec_fusb302 1-0022: fusb302: sending PD message header: 1a6f
+[  621.162565] typec_fusb302 1-0022: fusb302: sending PD message len: 4
+[  621.164642] typec_fusb302 1-0022: fusb302: IRQ: 0x41, a: 0x00, b: 0x00, status0: 0x93
+[  621.164651] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.166662] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x04, b: 0x00, status0: 0x93
+[  621.166671] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.166679] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.168887] typec_fusb302 1-0022: fusb302: PD message header: b41
+[  621.168896] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.168903] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.172388] typec_fusb302 1-0022: fusb302: PD message header: 2f4f
+[  621.172399] typec_fusb302 1-0022: fusb302: PD message len: 8
+[  621.172484] typec_fusb302 1-0022: tcpm: PD RX, header: 0x2f4f [1]
+[  621.172497] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0xff018043 type 1 cmd 3 len 2
+[  621.172508] typec_fusb302 1-0022: tcpm: AMS DISCOVER_MODES finished
+[  621.172516] typec_fusb302 1-0022: tcpm:  Alternate mode 0: SVID 0xff01, VDO 1: 0x000c0045
+[  621.172524] typec_fusb302 1-0022: tcpm: vdm discovery state changed: VDM_DISCOVERY_PARTNER_SVIDS -> VDM_DISCOVERY_PARTNER_MODES
+[  621.172534] typec_fusb302 1-0022: tcpm: AMS DISCOVER_MODES start
+[  621.172542] typec_fusb302 1-0022: tcpm: PD TX, header: 0x1c6f
+[  621.172858] typec_fusb302 1-0022: fusb302: read 2 PD messages from RX FIFO
+[  621.175364] typec_fusb302 1-0022: fusb302: sending PD message header: 1c6f
+[  621.175375] typec_fusb302 1-0022: fusb302: sending PD message len: 4
+[  621.177424] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x01, status0: 0x93
+[  621.177434] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.177441] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.180866] typec_fusb302 1-0022: fusb302: PD message header: d41
+[  621.180900] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.180923] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.185407] typec_fusb302 1-0022: fusb302: PD message header: 114f
+[  621.185441] typec_fusb302 1-0022: fusb302: PD message len: 4
+[  621.185653] typec_fusb302 1-0022: tcpm: PD RX, header: 0x114f [1]
+[  621.185691] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0x1d5c8083 type 2 cmd 3 len 1
+[  621.185721] typec_fusb302 1-0022: tcpm: AMS DISCOVER_MODES finished
+[  621.185744] typec_fusb302 1-0022: tcpm: Skip SVID 0x1d5c (failed to discover mode)
+[  621.186128] typec_fusb302 1-0022: fusb302: read 2 PD messages from RX FIFO
+[  621.187316] typec_fusb302 1-0022: tcpm: vdm discovery state changed: VDM_DISCOVERY_PARTNER_MODES -> VDM_DISCOVERY_COMPLETE
+[  621.189412] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x04, b: 0x01, status0: 0x93
+[  621.189444] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.189471] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.190237] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.201135] typec_fusb302 1-0022: tcpm: AMS DFP_TO_UFP_ENTER_MODE start
+[  621.201144] typec_fusb302 1-0022: tcpm: PD TX, header: 0x1e6f
+[  621.203579] typec_fusb302 1-0022: fusb302: sending PD message header: 1e6f
+[  621.203588] typec_fusb302 1-0022: fusb302: sending PD message len: 4
+[  621.205601] typec_fusb302 1-0022: fusb302: IRQ: 0x41, a: 0x00, b: 0x00, status0: 0x93
+[  621.205608] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.207513] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x04, b: 0x00, status0: 0x93
+[  621.207521] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.207526] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.209660] typec_fusb302 1-0022: fusb302: PD message header: f41
+[  621.209667] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.209672] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.212525] typec_fusb302 1-0022: fusb302: PD message header: 134f
+[  621.212531] typec_fusb302 1-0022: fusb302: PD message len: 4
+[  621.212665] typec_fusb302 1-0022: tcpm: PD RX, header: 0x134f [1]
+[  621.212690] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0xff018144 type 1 cmd 4 len 1
+[  621.212709] typec_fusb302 1-0022: tcpm: AMS DFP_TO_UFP_ENTER_MODE finished
+[  621.212859] typec_fusb302 1-0022: tcpm: AMS STRUCTURED_VDMS start
+[  621.212878] typec_fusb302 1-0022: tcpm: PD TX, header: 0x206f
+[  621.213008] typec_fusb302 1-0022: fusb302: read 2 PD messages from RX FIFO
+[  621.215925] typec_fusb302 1-0022: fusb302: sending PD message header: 206f
+[  621.215948] typec_fusb302 1-0022: fusb302: sending PD message len: 8
+[  621.218352] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x01, status0: 0x93
+[  621.218374] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.218391] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.220642] typec_fusb302 1-0022: fusb302: PD message header: 141
+[  621.220661] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.220676] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.223179] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x04, b: 0x01, status0: 0x93
+[  621.223187] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.223194] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.226513] typec_fusb302 1-0022: fusb302: PD message header: 254f
+[  621.226520] typec_fusb302 1-0022: fusb302: PD message len: 8
+[  621.226586] typec_fusb302 1-0022: tcpm: PD RX, header: 0x254f [1]
+[  621.226594] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0xff018150 type 1 cmd 16 len 2
+[  621.226600] typec_fusb302 1-0022: tcpm: AMS STRUCTURED_VDMS finished
+[  621.226630] typec_fusb302 1-0022: tcpm: AMS STRUCTURED_VDMS start
+[  621.226636] typec_fusb302 1-0022: tcpm: PD TX, header: 0x226f
+[  621.226970] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.229204] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x00, status0: 0x93
+[  621.229210] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.230965] xhci-hcd xhci-hcd.5.auto: xHCI Host Controller
+[  621.231078] xhci-hcd xhci-hcd.5.auto: new USB bus registered, assigned bus number 5
+[  621.231266] xhci-hcd xhci-hcd.5.auto: hcc params 0x0220fe64 hci version 0x110 quirks 0x0000808002000010
+[  621.231340] xhci-hcd xhci-hcd.5.auto: irq 54, io mem 0xfc400000
+[  621.231599] xhci-hcd xhci-hcd.5.auto: xHCI Host Controller
+[  621.231624] xhci-hcd xhci-hcd.5.auto: new USB bus registered, assigned bus number 6
+[  621.231646] xhci-hcd xhci-hcd.5.auto: Host supports USB 3.0 SuperSpeed
+[  621.231747] usb usb5: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 7.03
+[  621.232064] typec_fusb302 1-0022: fusb302: sending PD message header: 226f
+[  621.232083] typec_fusb302 1-0022: fusb302: sending PD message len: 8
+[  621.232119] usb usb5: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[  621.232133] usb usb5: Product: xHCI Host Controller
+[  621.232144] usb usb5: Manufacturer: Linux 7.3.0-edge-rockchip64 xhci-hcd
+[  621.232156] usb usb5: SerialNumber: xhci-hcd.5.auto
+[  621.233246] hub 5-0:1.0: USB hub found
+[  621.233327] hub 5-0:1.0: 1 port detected
+[  621.234061] typec_fusb302 1-0022: fusb302: IRQ: 0x41, a: 0x00, b: 0x00, status0: 0x93
+[  621.234083] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.234272] usb usb6: We don't know the algorithms for LPM for this host, disabling LPM.
+[  621.234289] usb usb6: New USB device found, idVendor=1d6b, idProduct=0003, bcdDevice= 7.03
+[  621.234578] usb usb6: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[  621.234593] usb usb6: Product: xHCI Host Controller
+[  621.234604] usb usb6: Manufacturer: Linux 7.3.0-edge-rockchip64 xhci-hcd
+[  621.234615] usb usb6: SerialNumber: xhci-hcd.5.auto
+[  621.235688] hub 6-0:1.0: USB hub found
+[  621.235767] hub 6-0:1.0: 1 port detected
+[  621.238965] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x04, b: 0x00, status0: 0x93
+[  621.238988] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.239006] typec_fusb302 1-0022: fusb302: IRQ: PD tx success
+[  621.241380] typec_fusb302 1-0022: fusb302: PD message header: 341
+[  621.241402] typec_fusb302 1-0022: fusb302: PD message len: 0
+[  621.241419] typec_fusb302 1-0022: tcpm: PD TX complete, status: 0
+[  621.244547] typec_fusb302 1-0022: fusb302: PD message header: 174f
+[  621.244570] typec_fusb302 1-0022: fusb302: PD message len: 4
+[  621.244707] typec_fusb302 1-0022: tcpm: PD RX, header: 0x174f [1]
+[  621.244732] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0xff018151 type 1 cmd 17 len 1
+[  621.244752] typec_fusb302 1-0022: tcpm: AMS STRUCTURED_VDMS finished
+[  621.245088] typec_fusb302 1-0022: fusb302: read 2 PD messages from RX FIFO
+[  621.248720] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x01, status0: 0x93
+[  621.248727] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  621.248733] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  621.286447] typec_fusb302 1-0022: fusb302: BC_LVL handler, status0=0x93
+[  622.505004] typec_fusb302 1-0022: fusb302: IRQ: 0x51, a: 0x00, b: 0x01, status0: 0x93
+[  622.505039] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  622.505065] typec_fusb302 1-0022: fusb302: IRQ: PD sent good CRC
+[  622.509686] typec_fusb302 1-0022: fusb302: PD message header: 294f
+[  622.509721] typec_fusb302 1-0022: fusb302: PD message len: 8
+[  622.509916] typec_fusb302 1-0022: tcpm: PD RX, header: 0x294f [1]
+[  622.509941] typec_fusb302 1-0022: tcpm: Rx VDM cmd 0xff018106 type 0 cmd 6 len 2
+[  622.509980] typec_displayport port0-partner.0: no extcon found for current port, not notifying hpd change
+[  622.513270] typec_fusb302 1-0022: fusb302: IRQ: 0x41, a: 0x00, b: 0x00, status0: 0x93
+[  622.513291] typec_fusb302 1-0022: fusb302: IRQ: BC_LVL, handler pending
+[  622.546568] typec_fusb302 1-0022: fusb302: BC_LVL handler, status0=0x93
+[  622.565932] usb 5-1: new high-speed USB device number 2 using xhci-hcd
+[  622.702849] usb 5-1: New USB device found, idVendor=05e3, idProduct=0610, bcdDevice= 6.56
+[  622.704473] usb 5-1: New USB device strings: Mfr=1, Product=2, SerialNumber=0
+[  622.704500] usb 5-1: Product: USB2.1 Hub
+[  622.704517] usb 5-1: Manufacturer: GenesysLogic
+[  622.760042] hub 5-1:1.0: USB hub found
+[  622.760461] hub 5-1:1.0: 4 ports detected
+
+
+[root@mixtile-blade3](arm2023_mixtile-blade3) ~
+# lsusb -vt
+/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=ehci-platform/1p, 480M
+    ID 1d6b:0002 Linux Foundation 2.0 root hub
+/:  Bus 002.Port 001: Dev 001, Class=root_hub, Driver=ohci-platform/1p, 12M
+    ID 1d6b:0001 Linux Foundation 1.1 root hub
+/:  Bus 003.Port 001: Dev 001, Class=root_hub, Driver=ehci-platform/1p, 480M
+    ID 1d6b:0002 Linux Foundation 2.0 root hub
+/:  Bus 004.Port 001: Dev 001, Class=root_hub, Driver=ohci-platform/1p, 12M
+    ID 1d6b:0001 Linux Foundation 1.1 root hub
+/:  Bus 005.Port 001: Dev 001, Class=root_hub, Driver=xhci-hcd/1p, 480M
+    ID 1d6b:0002 Linux Foundation 2.0 root hub
+    |__ Port 001: Dev 002, If 0, Class=Hub, Driver=hub/4p, 480M
+        ID 05e3:0610 Genesys Logic, Inc. Hub
+/:  Bus 006.Port 001: Dev 001, Class=root_hub, Driver=xhci-hcd/1p, 5000M
+    ID 1d6b:0003 Linux Foundation 3.0 root hub
