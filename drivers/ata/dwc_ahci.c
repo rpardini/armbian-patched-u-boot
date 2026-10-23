@@ -57,6 +57,19 @@ static int dwc_ahci_probe(struct udevice *dev)
 	struct phy phy;
 
 	ret = generic_phy_get_by_name(dev, "sata-phy", &phy);
+	if (ret && dev_read_stringlist_search(dev, "phy-names",
+					      "sata-phy") < 0) {
+		ofnode node;
+
+		/* e.g. RK35xx: the phy is in the sata-port@N subnode */
+		dev_for_each_subnode(node, dev) {
+			if (!ofnode_is_enabled(node))
+				continue;
+			ret = generic_phy_get_by_index_nodev(node, 0, &phy);
+			if (!ret)
+				break;
+		}
+	}
 	if (ret) {
 		pr_err("can't get the phy from DT\n");
 		return ret;
