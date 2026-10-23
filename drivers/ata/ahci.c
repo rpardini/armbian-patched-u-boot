@@ -759,8 +759,9 @@ static int ata_scsiop_read_capacity10(struct ahci_uc_priv *uc_priv,
 		return -EPERM;
 	}
 
-	cap64 = ata_id_n_sectors(uc_priv->ataid[pccb->target]);
-	if (cap64 > 0x100000000ULL)
+	/* READ CAPACITY returns the address of the last block */
+	cap64 = ata_id_n_sectors(uc_priv->ataid[pccb->target]) - 1;
+	if (cap64 > 0xffffffffULL)
 		cap64 = 0xffffffff;
 
 	cap = cpu_to_be32(cap64);
@@ -788,7 +789,8 @@ static int ata_scsiop_read_capacity16(struct ahci_uc_priv *uc_priv,
 		return -EPERM;
 	}
 
-	cap = ata_id_n_sectors(uc_priv->ataid[pccb->target]);
+	/* READ CAPACITY returns the address of the last block */
+	cap = ata_id_n_sectors(uc_priv->ataid[pccb->target]) - 1;
 	cap = cpu_to_be64(cap);
 	memcpy(pccb->pdata, &cap, sizeof(cap));
 
